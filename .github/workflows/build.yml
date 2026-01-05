@@ -1,0 +1,77 @@
+name: Build with Nuitka
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13.9"
+
+      - name: Install required packages
+        run: |
+          pip install json-c==0.18 numpy==2.3.5 scipy==1.16.3 geopandas==1.1.1 shapely==2.1.2 tqdm==4.67.1 osmnx==2.0.7 networkx==3.6 scikit-learn==1.7.2
+
+      - name: Install Nuitka
+        run: |
+          pip install nuitka
+
+      # -------------------------
+      # OS-SPECIFIC COMPILERS
+      # -------------------------
+
+      - name: Install compiler on Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential python3-dev
+
+      - name: Install compiler on Windows
+        if: matrix.os == 'windows-latest'
+        run: |
+          pip install ordered-set zstandard
+          # Nuitka will auto-install MSVC Build Tools if missing
+
+      - name: Install compiler on macOS
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew update
+          brew install llvm
+
+      # -------------------------
+      # BUILD EXECUTABLE
+      # -------------------------
+
+      - name: Build executable with Nuitka
+        run: |
+          python -m nuitka \
+            --onefile \
+            --standalone \
+            create_US_demand_file.py
+
+      # -------------------------
+      # UPLOAD ARTIFACT
+      # -------------------------
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.os }}
+          path: |
+            create_US_demand_file.exe
+            create_US_demand_file.bin
+            create_US_demand_file
+          if-no-files-found: ignore
