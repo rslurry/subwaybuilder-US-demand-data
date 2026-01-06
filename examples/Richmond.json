@@ -1,0 +1,31 @@
+{
+    "city" : "Richmond",
+    "airport" : ["RIC"],
+    "state" : "va",
+    "year" : 2022,
+    "bbox" : [-77.69757, 37.37470, -77.28282, 37.68772],
+    "cbd_bbox" : null,
+    
+    "MAXPOPSIZE" : 200,
+    "CALCULATE_ROUTES" : true,
+    "SMALL_THRESHOLD" : 100,
+    "DISTANCE_THRESHOLD_NONCBD" : 0.1,
+    "DISTANCE_THRESHOLD_CBD" : 0.05,
+    "DEMAND_FACTOR" : 1,
+    
+    "point_locs_to_move" : [],
+    "moved_point_locs" : [], 
+    
+    "airport_daily_passengers" : [13000], 
+    "airport_loc" : [[-77.33319, 37.50833]],
+    "airport_required_locs" : [[]],
+    "air_pop_size_req" : [200],
+    "air_pop_size_remain" : [200],
+    
+    "universities" : ["VCU", "UR"],
+    "univ_loc" : [[-77.45406, 37.54655], [-77.53975, 37.57854]],
+    "univ_merge_within" : [0, 0],
+    "students" : [29000, 3700],
+    "perc_oncampus" : [0.207, 0.82],
+    "univ_pop_size" : [150, 75]
+}

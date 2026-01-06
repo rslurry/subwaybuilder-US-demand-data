@@ -1,0 +1,31 @@
+{
+    "city" : "Irvine",
+    "airport" : ["SNA"],
+    "state" : "ca",
+    "year" : 2022,
+    "bbox" : [-118.01834, 33.53973, -117.67833, 33.77403],
+    "cbd_bbox" : null,
+    
+    "MAXPOPSIZE" : 200,
+    "CALCULATE_ROUTES" : true,
+    "SMALL_THRESHOLD" : 100,
+    "DISTANCE_THRESHOLD_NONCBD" : 0.1,
+    "DISTANCE_THRESHOLD_CBD" : 0.05,
+    "DEMAND_FACTOR" : 1,
+    
+    "point_locs_to_move" : [],
+    "moved_point_locs" : [], 
+    
+    "airport_daily_passengers" : [30000], 
+    "airport_loc" : [[-117.86186, 33.67873]],
+    "airport_required_locs" : [[]],
+    "air_pop_size_req" : [200],
+    "air_pop_size_remain" : [200],
+    
+    "universities" : ["UCI", "CUI", "WU", "SAC"],
+    "univ_loc" : [[-117.84274, 33.64599], [-117.80905, 33.65429], [-117.84799, 33.68552], [-117.88874, 33.75853]],
+    "univ_merge_within" : [0, 0, 0, 0],
+    "students" : [37000, 3500, 7200, 20000],
+    "perc_oncampus" : [0.48, 0.29, 0, 0],
+    "univ_pop_size" : [200, 75, 100, 200]
+}
