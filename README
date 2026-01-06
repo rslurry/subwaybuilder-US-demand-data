@@ -37,14 +37,17 @@ See the examples/ directory for example JSON input files used for the maps share
                              Recommended to set this to false when initially testing out boundaries and clustering.
                        Example: true
     SMALL_THRESHOLD : int, maximum pop size considered for agglomerative clustering.  
-                           Pops smaller than this size will be merged with other nearby pops that work at the same location.
+                           Pops smaller than this size will be merged with other nearby pops that work at the 
+                           same location.
                       Example: 100
     DISTANCE_THRESHOLD_NONCBD : float, distance threshold in degrees to consider when clustering.
-                                       This is applied outside the CBD, or if the CBD is not used, then applied everywhere.
-                                       Note that you will get demand points separated by less than this value, so do not 
-                                       use this value as a "minimum separation" parameter.
+                                       This is applied outside the CBD, or if the CBD is not used, then applied 
+                                       everywhere.
+                                       Note that you will get demand points separated by less than this value, 
+                                       so do not use this value as a "minimum separation" parameter.
                                 Example: 0.1
-    DISTANCE_THRESHOLD_CBD : float, like `DISTANCE_THRESHOLD_NONCBD` but applied within the CBD defined by `cbd_bbox`.
+    DISTANCE_THRESHOLD_CBD : float, like `DISTANCE_THRESHOLD_NONCBD` but applied within the CBD defined by 
+                                    `cbd_bbox`.
                              Example: 0.05
     DEMAND_FACTOR: float, multiply all LODES pop sizes by this factor.
                           Example: 2
