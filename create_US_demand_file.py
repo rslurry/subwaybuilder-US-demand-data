@@ -125,8 +125,7 @@ from collections import defaultdict
 from sklearn.cluster import AgglomerativeClustering
 
 FOODIR = os.path.dirname(__file__)
-sys.path.append(os.path.join(FOODIR, 'lib'))
-import utils as U
+from lib import utils as U
 
 np.random.seed(42)
 
