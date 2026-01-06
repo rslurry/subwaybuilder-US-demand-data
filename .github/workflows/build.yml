@@ -64,6 +64,30 @@ jobs:
           python -m nuitka --onefile --standalone --assume-yes-for-downloads --follow-imports create_US_demand_file.py
 
       # -------------------------
+      # RENAME OUTPUT BASED ON OS
+      # -------------------------
+      
+      - name: Rename executable
+        shell: bash
+        run: |
+          # Find the Nuitka output file (with or without extension)
+          FILE=$(ls create_US_demand_file* | head -n 1)
+      
+          # Extract extension using sed:
+          # - If a dot exists, EXT becomes the part after the dot
+          # - If no dot exists, EXT becomes empty
+          EXT=$(echo "$FILE" | sed -n 's/^[^.]*\.//p')
+      
+          # Build new name:
+          # - If EXT is non-empty, append ".EXT"
+          # - If EXT is empty, append nothing
+          NEW_NAME="create_US_demand_file_${{ matrix.os }}${EXT:+.$EXT}"
+      
+          mv "$FILE" "$NEW_NAME"
+          echo "Renamed $FILE -> $NEW_NAME"
+
+
+      # -------------------------
       # UPLOAD ARTIFACT
       # -------------------------
 
@@ -71,11 +95,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: create_US_demand_file_${{ matrix.os }}
-          path: |
-            create_US_demand_file.exe
-            create_US_demand_file.bin
-            create_US_demand_file
-          if-no-files-found: ignore
+          path: create_US_demand_file_${{ matrix.os }}*
+          if-no-files-found: error
 
   # -------------------------
   # RELEASE
