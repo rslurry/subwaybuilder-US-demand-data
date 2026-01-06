@@ -56,7 +56,7 @@ jobs:
 
       - name: Build executable with Nuitka
         run: |
-          python -m nuitka --onefile --standalone --assume-yes-for-downloads --follow-imports --include-module=utils=lib.utils create_US_demand_file.py
+          python -m nuitka --onefile --standalone --assume-yes-for-downloads --follow-imports create_US_demand_file.py
 
       # -------------------------
       # UPLOAD ARTIFACT
