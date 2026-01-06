@@ -71,8 +71,8 @@ jobs:
         shell: bash
         run: |
           # Find the Nuitka output file (with or without extension)
-          FILE=(create_US_demand_file*)
-          FILE="${FILE[0]}"
+          FILE=$(find . -maxdepth 1 -type f -name "create_US_demand_file*" | head -n 1)
+          echo "Found file: $FILE"
       
           # Extract extension using sed:
           # - If a dot exists, EXT becomes the part after the dot
