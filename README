@@ -50,10 +50,12 @@ See the examples/ directory for example JSON input files used for the maps share
                                     `cbd_bbox`.
                              Example: 0.05
     DEMAND_FACTOR: float, multiply all LODES pop sizes by this factor.
+                          This parameter is only offered to make cities with small number of commutes viable.
+                          In general it is recommended to use a value of 1.
                           Example: 2
     
     point_locs_to_move : list of list of floats, coordinates in [lon, lat] of demand points that you want to move 
-                                                 for whatever reason.  
+                                                 for whatever reason (over water, overlapping, etc.).  
                                                  Must correspond exactly to the order used in `moved_point_locs`.
                                                  To not use this, set it to []
                          Example: [[-77.69260, 43.29925], [-77.69280, 43.28780], [-77.74163, 43.30533], 
