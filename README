@@ -16,8 +16,8 @@ If you're downloading a pre-compiled release, then it might look something like
     ./create_US_demand_file.bin Rochester.json
 
 You must provide an input JSON file.  Below are all available parameters for this input file.
-Some parameters are optional: point_locs_to_move/moved_point_locs, universities + related parameters, and 
-                              entertainment + related parameters.
+Some parameters are optional: airport required locations and pop sizes, some parameters for universities, and 
+                              all entertainment-related parameters.
 If omitted, they will be ignored.
 All other parameters are required.
 See the examples/ directory for example JSON input files used for the maps shared on the Discord.
