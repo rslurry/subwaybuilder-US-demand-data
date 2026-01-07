@@ -35,6 +35,8 @@ See the examples/ directory for example JSON input files used for the maps share
                  Example: 200
     CALCULATE_ROUTES : bool, determines whether to calculate commuting routes.  
                              Recommended to set this to false when initially testing out boundaries and clustering.
+                             NOTE: It can take a long time to calculate routes!  Small cities are 15-30 minutes 
+                                   on a 16 core machine, which means ~1-2 hours on a 4 core machine!
                        Example: true
     SMALL_THRESHOLD : int, maximum pop size considered for agglomerative clustering.  
                            Pops smaller than this size will be merged with other nearby pops that work at the 
