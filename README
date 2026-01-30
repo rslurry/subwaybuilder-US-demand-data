@@ -9,6 +9,12 @@ reasonable values you can use for most cities.
 
 Running the code
 ----------------
+The code is compatible with Linux and Mac.  Sorry Windows users, blame Microsoft for not following basic 
+conventions when forking processes.  The recommended solution for Windows users is to use WSL, then use 
+the Linux file in the latest release (or run the raw Python code) within WSL.  If someone is willing to 
+refactor the code in a way that runs on Windows and preserves performance on Linux and Mac, I would love 
+that - please pull request these changes if you go through the effort to do that.
+
 This script is meant to be run like
     ./create_US_demand_file.py Rochester.json
 
@@ -45,6 +51,8 @@ Parameters
     HUMAN_READABLE : (optional) bool, determines whether to make the output demand_data.json file have indentation 
                                       structure for readability (true) or not to minimize file size (false).
                       Default: false
+    MAX_WORKERS : (optional) int, sets the number of workers to use for parallel processing.
+                   Default: None (total number of CPU threads)
     MAXPOPSIZE : int, maximum size any pop can be.  
                       Pops larger than this value are split into multiple pops to follow this setting.
                  Example: 200
