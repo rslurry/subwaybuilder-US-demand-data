@@ -124,6 +124,7 @@ from shapely.geometry import Point
 from tqdm import tqdm
 import osmnx as ox
 import networkx as nx
+import platform
 
 from collections import defaultdict
 from sklearn.cluster import AgglomerativeClustering
@@ -155,7 +156,7 @@ if __name__ == "__main__":
         MAX_WORKERS = cfg['MAX_WORKERS']
     except:
         MAX_WORKERS = None
-
+    
     # Map info
     bbox = cfg['bbox']
     cbd_bbox = cfg['cbd_bbox']
@@ -387,8 +388,12 @@ if __name__ == "__main__":
         return block, ret
 
     print("  Processing block data")
-    with Pool(processes=MAX_WORKERS) as pool:
-        results = pool.map(process_block, xwalk_ids)
+    if platform.system() == "Windows":
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+            results = ex.map(process_block, xwalk_ids)
+    else:
+        with Pool(processes=MAX_WORKERS) as pool:
+            results = pool.map(process_block, xwalk_ids)
     for res in results:
         block_data[res[0]] = res[1]
 
@@ -1094,11 +1099,16 @@ if __name__ == "__main__":
         
         # Prepare arguments for parallel jobs
         print("Calculating driving paths for each home node.  This may take a while.")
-        with Pool() as pool:
-            #results = pool.map(process_home_node, range(len(demand['points'])))
-            results = []
-            for r in tqdm(pool.imap(process_home_node, range(len(demand['points']))), total=len(demand['points'])):
-                results.append(r)
+
+        if platform.system() == "Windows":
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+                results = list(ex.map(process_home_node_0, [i for i in range(0,len(demand["points"]))]))
+        else:
+            with Pool(processes=MAX_WORKERS) as pool:
+                #results = pool.map(process_home_node, range(len(demand['points'])))
+                results = []
+                for r in tqdm(pool.imap(process_home_node, range(len(demand['points']))), total=len(demand['points'])):
+                    results.append(r)
         
         # Flatten results and update demand
         for ret in results:
