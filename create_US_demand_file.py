@@ -284,7 +284,7 @@ if __name__ == "__main__":
         else:
             assert len(ent_pop_size) == len(entertainment), str(len(entertainment))+" entertainment locations specified, but "+str(len(ent_pop_size))+" entertainment pop sizes were provided."
     except Exception as e:
-        print("Entertainment data either not provided or missing required parameters.  Disabling entertainment pops.")
+        print("Error processing entertainment data:\n", e, "\nDisabling entertainment pops.")
         entertainment = False
 
     ###############################################################################
