@@ -7,6 +7,22 @@ likely that the resulting demand data will lag when used in Subway Builder.  See
 reasonable values you can use for most cities.
 
 
+Setting up the environment
+--------------------------
+If running the Python code directly rather than a pre-compiled release, use the provided 
+environment.yml file to create a compatible conda environment.  That recipe is confirmed to work as of 
+15 Feb 2026.  If you use different package versions, there is no guarantee that the code will work.  
+I will not help troubleshoot any issues that arise if you are using different package versions.
+
+First, make sure you have a working conda installation.  If you don't already have conda, 
+you can acquire a lightweight version via miniforge:
+    https://github.com/conda-forge/miniforge/releases
+
+Once you have conda, build the environment via
+    conda env create -f environment.yml
+If this fails on your OS/architecture, @slurry in the Discord and provide as much detail as possible.
+
+
 Running the code
 ----------------
 The code is compatible with Linux and Mac.  Sorry Windows users, blame Microsoft for not following basic 
@@ -14,11 +30,6 @@ conventions when forking processes.  The recommended solution for Windows users 
 the Linux file in the latest release (or run the raw Python code) within WSL.  If someone is willing to 
 refactor the code in a way that runs on Windows and preserves performance on Linux and Mac, I would love 
 that - please pull request these changes if you go through the effort to do that.
-
-If running the Python code directly rather than a pre-compiled release, use the provided 
-environment.yml file to create a compatible conda environment.  That recipe is confirmed to work as of 
-15 Feb 2026.  If you use different package versions, there is no guarantee that the code will work.  
-I will not help troubleshoot any issues that arise if you are using different package versions.
 
 This script is meant to be run like
     ./create_US_demand_file.py Rochester.json
