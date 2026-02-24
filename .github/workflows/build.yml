@@ -33,9 +33,9 @@ jobs:
         run: |
           pip install nuitka
 
-      # -------------------------
+      # ---------------------
       # OS-SPECIFIC COMPILERS
-      # -------------------------
+      # ---------------------
 
       - name: Install compiler on Linux
         if: matrix.os == 'ubuntu-latest'
@@ -55,13 +55,41 @@ jobs:
           brew update
           brew install llvm
 
-      # -------------------------
+      # ----------------
       # BUILD EXECUTABLE
-      # -------------------------
+      # ----------------
 
       - name: Build executable with Nuitka
         run: |
           python -m nuitka --onefile --standalone --assume-yes-for-downloads --follow-imports create_US_demand_file.py
+
+      # ----------------------------
+      # SET EXECUTABLE SUFFIX PER OS
+      # ----------------------------
+
+      - name: Map OS name to output suffix
+        id: osmap
+        shell: bash
+        run: |
+          case "${{ matrix.os }}" in
+            ubuntu-24.04)
+              echo "OS_SUFFIX=linux_x86-64" >> $GITHUB_ENV
+              ;;
+            ubuntu-24.04-arm)
+              echo "OS_SUFFIX=linux_arm" >> $GITHUB_ENV
+              ;;
+            macos-15)
+              echo "OS_SUFFIX=macos_arm" >> $GITHUB_ENV
+              ;;
+            macos-15-intel)
+              echo "OS_SUFFIX=macos_intel_x86-64" >> $GITHUB_ENV
+              ;;
+            *)
+              # fallback to the raw matrix value
+              echo "OS_SUFFIX=${{ matrix.os }}" >> $GITHUB_ENV
+              ;;
+          esac
+
 
       # -------------------------
       # RENAME OUTPUT BASED ON OS
@@ -83,16 +111,16 @@ jobs:
           # Build new name:
           # - If EXT is non-empty, append ".EXT"
           # - If EXT is empty, append nothing
-          NEW_NAME="create_US_demand_file_${{ matrix.os }}${EXT:+.$EXT}"
+          NEW_NAME="create_US_demand_file_${OS_SUFFIX}${EXT:+.$EXT}"
       
           mv "$FILE" "$NEW_NAME"
           echo "Renamed $FILE -> $NEW_NAME"
           echo "FINAL_EXECUTABLE=$NEW_NAME" >> $GITHUB_ENV
 
 
-      # -------------------------
+      # ---------------
       # UPLOAD ARTIFACT
-      # -------------------------
+      # ---------------
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -101,9 +129,9 @@ jobs:
           path: ${{ env.FINAL_EXECUTABLE }}
           if-no-files-found: error
 
-  # -------------------------
+  # -------
   # RELEASE
-  # -------------------------
+  # -------
   release:
     name: Create GitHub Release
     needs: build
