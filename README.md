@@ -163,7 +163,7 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>DEMAND_FACTOR</td>
-    <td>float</td>
+    <td>(optional)<br>float</td>
     <td>Multiplier for all LODES pop sizes.</td>
     <td><code>2</code></td>
   </tr>
