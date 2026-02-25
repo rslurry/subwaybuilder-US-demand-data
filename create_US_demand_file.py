@@ -42,6 +42,13 @@ The input JSON file must have the following fields defined:
                                 Example: 0.1
     DISTANCE_THRESHOLD_CBD : float, like `DISTANCE_THRESHOLD_NONCBD` but applied within the CBD defined by `cbd_bbox`.
                              Example: 0.05
+    MAXPOPTHRESHOLD : (optional) list of int, demand point size thresholds for Colin's clustering approach.
+                      Colin uses: [200, 500, 5000, 15000, inf]
+                      Default: [25, 50, 75, 200, 500, 5000, 15000, inf]
+    BUFFERMETERS : (optional) list of int or float, distance from demand points to merge when using Colin's clustering approach.
+                                                    Must match MAXPOPTHRESHOLD in length.
+                   Colin uses: [250, 200, 150, 125, 100]
+                   Default: [1500, 1000, 500, 250, 200, 150, 125, 100]
     DEMAND_FACTOR: float, multiply all LODES pop sizes by this factor.
                           Example: 2
     
@@ -158,6 +165,25 @@ if __name__ == "__main__":
         MAX_WORKERS = cfg['MAX_WORKERS']
     except:
         MAX_WORKERS = None
+    try:
+        maxPopThreshold = cfg['MAXPOPTHRESHOLD']
+        if not isinstance(maxPopThreshold, list):
+            raise ValueError("Expected to receive a list for MAXPOPTHRESHOLD.\n"+\
+                             "Received: "+str(type(maxPopThreshold)))
+        maxPopThreshold = np.array(maxPopThreshold)
+    except:
+        maxPopThreshold = U.maxPopThreshold
+    try:
+        bufferMeters = cfg['BUFFERMETERS']
+        if not isinstance(bufferMeters, list):
+            raise ValueError("Expected to receive a list for BUFFERMETERS.\n"+\
+                             "Received: "+str(type(bufferMeters)))
+        bufferMeters = np.array(bufferMeters)
+    except:
+        bufferMeters = U.bufferMeters
+    assert len(maxPopThreshold) == len(bufferMeters), str(len(maxPopThreshold)) + \
+           " values provided for MAXPOPTHRESHOLD, but " + \
+           str(len(bufferMeters))+" values provided for BUFFERMETERS"
     
     # Map info
     bbox = cfg['bbox']
@@ -626,7 +652,7 @@ if __name__ == "__main__":
         for ipoint, p in enumerate(sorted_points):
             print("  ("+str(counter+1)+") Determining mergers:", ipoint+1, "/", len(sorted_points), end='\r')
             # Determine the buffer size for merging this point
-            merge_buffer = U.bufferMeters[size_of_points[ipoint] <= U.maxPopThreshold][0]
+            merge_buffer = bufferMeters[size_of_points[ipoint] <= maxPopThreshold][0]
             if not ipoint:
                 #unique_locs.append(p['location'])
                 unique_locs = np.vstack([unique_locs, p["location"]])
