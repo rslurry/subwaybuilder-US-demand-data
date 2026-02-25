@@ -42,13 +42,13 @@ The input JSON file must have the following fields defined:
                                 Example: 0.1
     DISTANCE_THRESHOLD_CBD : float, like `DISTANCE_THRESHOLD_NONCBD` but applied within the CBD defined by `cbd_bbox`.
                              Example: 0.05
-    MAXPOPTHRESHOLD : (optional) list of int, demand point size thresholds for Colin's clustering approach.
-                      Colin uses: [200, 500, 5000, 15000, inf]
-                      Default: [25, 50, 75, 200, 500, 5000, 15000, inf]
-    BUFFERMETERS : (optional) list of int or float, distance from demand points to merge when using Colin's clustering approach.
+    MAX_POP_THRESHOLD : (optional) list of int, demand point size thresholds for Colin's clustering approach.
+                        Colin uses: [200, 500, 5000, 15000, inf]
+                        Default: [25, 50, 75, 200, 500, 5000, 15000, inf]
+    BUFFER_METERS : (optional) list of int or float, distance from demand points to merge when using Colin's clustering approach.
                                                     Must match MAXPOPTHRESHOLD in length.
-                   Colin uses: [250, 200, 150, 125, 100]
-                   Default: [1500, 1000, 500, 250, 200, 150, 125, 100]
+                    Colin uses: [250, 200, 150, 125, 100]
+                    Default: [1500, 1000, 500, 250, 200, 150, 125, 100]
     DEMAND_FACTOR: float, multiply all LODES pop sizes by this factor.
                           Example: 2
     
@@ -156,7 +156,10 @@ if __name__ == "__main__":
     SMALL_THRESHOLD = cfg['SMALL_THRESHOLD']
     DISTANCE_THRESHOLD_NONCBD = cfg['DISTANCE_THRESHOLD_NONCBD']
     DISTANCE_THRESHOLD_CBD    = cfg['DISTANCE_THRESHOLD_CBD']
-    DEMAND_FACTOR = cfg['DEMAND_FACTOR']
+    try:
+        DEMAND_FACTOR = cfg['DEMAND_FACTOR']
+    except:
+        DEMAND_FACTOR = 1
     try:
         HUMAN_READABLE = cfg['HUMAN_READABLE']
     except:
@@ -166,24 +169,31 @@ if __name__ == "__main__":
     except:
         MAX_WORKERS = None
     try:
-        maxPopThreshold = cfg['MAXPOPTHRESHOLD']
+        maxPopThreshold = cfg['MAX_POP_THRESHOLD']
         if not isinstance(maxPopThreshold, list):
-            raise ValueError("Expected to receive a list for MAXPOPTHRESHOLD.\n"+\
+            raise ValueError("Expected to receive a list for MAX_POP_THRESHOLD.\n"+\
                              "Received: "+str(type(maxPopThreshold)))
         maxPopThreshold = np.array(maxPopThreshold)
     except:
         maxPopThreshold = U.maxPopThreshold
     try:
-        bufferMeters = cfg['BUFFERMETERS']
+        bufferMeters = cfg['BUFFER_METERS']
         if not isinstance(bufferMeters, list):
-            raise ValueError("Expected to receive a list for BUFFERMETERS.\n"+\
+            raise ValueError("Expected to receive a list for BUFFER_METERS.\n"+\
                              "Received: "+str(type(bufferMeters)))
         bufferMeters = np.array(bufferMeters)
     except:
         bufferMeters = U.bufferMeters
     assert len(maxPopThreshold) == len(bufferMeters), str(len(maxPopThreshold)) + \
-           " values provided for MAXPOPTHRESHOLD, but " + \
-           str(len(bufferMeters))+" values provided for BUFFERMETERS"
+           " values provided for MAX_POP_THRESHOLD, but " + \
+           str(len(bufferMeters))+" values provided for BUFFER_METERS"
+    print("Demand parameters:")
+    print("  SMALL_THRESHOLD:", SMALL_THRESHOLD)
+    print("  DISTANCE_THRESHOLD_NONCBD:", DISTANCE_THRESHOLD_NONCBD)
+    print("  DISTANCE_THRESHOLD_CBD:", DISTANCE_THRESHOLD_CBD)
+    print("  MAX_POP_THRESHOLD:", maxPopThreshold)
+    print("  BUFFER_METERS:", bufferMeters)
+    print("  DEMAND_FACTOR:", DEMAND_FACTOR)
     
     # Map info
     bbox = cfg['bbox']
