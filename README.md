@@ -148,6 +148,20 @@ See the examples/ directory for example JSON input files used for some of the ma
   </tr>
 
   <tr>
+    <td>MAXPOPTHRESHOLD</td>
+    <td>(optional)<br>list of int</td>
+    <td>Demand point size thresholds for Colin's clustering approach.<br>Colin uses: <code>[200, 500, 5000, 15000, Infinity]</code><br>Default: <code>[25, 50, 75, 200, 500, 5000, 15000, Infinity]</code></td>
+    <td><code>[25, 50, 75, 200, 500, 5000, 15000, Infinity]</code></td>
+  </tr>
+
+  <tr>
+    <td>BUFFERMETERS</td>
+    <td>(optional)<br>list of int or float</td>
+    <td>Distance from demand points to merge when using Colin's clustering approach.<br>Must match MAXPOPTHRESHOLD in length.<br>Colin uses: <code>[250, 200, 150, 125, 100]</code><br>Default: <code>[1500, 1000, 500, 250, 200, 150, 125, 100]</code></td>
+    <td><code>[1500, 1000, 500, 250, 200, 150, 125, 100]</code></td>
+  </tr>
+
+  <tr>
     <td>DEMAND_FACTOR</td>
     <td>float</td>
     <td>Multiplier for all LODES pop sizes.</td>
