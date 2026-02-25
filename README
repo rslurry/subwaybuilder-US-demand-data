@@ -155,7 +155,8 @@ Parameters
 
     entertainment : list of strings, short identifiers for each entertainment location
     ent_loc : list of list of floats, coordinates in [lon, lat] for each entertainment location 
-    ent_merge_within : list of ints, distance in meters to merge any nearby demand points into the new entertainment demand point.
+    ent_merge_within : list of ints, distance in meters to merge any nearby demand points into the new 
+                                     entertainment demand point.
     ent_req_residences : list of list of list of floats, like `airport_required_locs` but for 
                                                          entertainment locations
     ent_size : list of ints, number of daily visitors to each entertainment location
