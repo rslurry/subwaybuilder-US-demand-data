@@ -50,6 +50,6 @@ def haversine(lon1, lat1, lon2, lat2):
 def in_cbd(loc, cbd_bbox=None):
     if cbd_bbox is not None:
         if ((loc[0] >= cbd_bbox[0]) and (loc[1] >= cbd_bbox[1]) and \
-            (loc[2] <= cbd_bbox[2]) and (loc[3] <= cbd_bbox[3])):
+            (loc[0] <= cbd_bbox[2]) and (loc[1] <= cbd_bbox[3])):
             return True
     return False
