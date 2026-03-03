@@ -121,6 +121,7 @@ TODOs:
 import sys, os
 import copy
 import csv
+import functools
 import glob
 import gzip
 import json
@@ -147,7 +148,97 @@ np.random.seed(42)
 
 ###############################################################################
 
+def process_block(block, home, work, pops):
+    ret = {}
+    iblock = home == block
+    work_locations = np.unique(work[iblock])
+    for w in work_locations:
+        ipops = work[iblock] == w
+        ret[w] = pops[iblock][ipops].sum()
+    return block, ret
+
+
+def merge_points(inps, loc_assignments, sorted_points, size_of_points, pops_by_id):
+    ipoint, unique_loc = inps
+    iloc = [ip==ipoint for ip in loc_assignments]
+    these_points = [sorted_points[p] for p in range(len(sorted_points)) if iloc[p]]
+    pids = [p['id'] for p in these_points]
+    merged_id = these_points[size_of_points[iloc].argmax()]['id']
+    if 'merged_' not in merged_id:
+        # To make clear that this point had others merged into it
+        merged_id = 'merged_' + merged_id
+    merged_loc = U.compute_centroid([p['location'] for p in these_points], size_of_points[iloc])
+    merged_jobs = int(np.sum([p['jobs'] for p in these_points]))
+    merged_residents = int(np.sum([p['residents'] for p in these_points]))
+    merged_popIds = []
+    for p in these_points:
+        merged_popIds += p['popIds']
+    merged_popIds = np.unique(merged_popIds).tolist()
+    merged_point = {
+        "id": merged_id,
+        "location": merged_loc,
+        "jobs": merged_jobs,
+        "residents": merged_residents,
+        "popIds": merged_popIds
+    }
+    # Update pops
+    updated_pops = []
+    for popid in merged_popIds:
+        p = copy.deepcopy(pops_by_id[popid])
+        if p['residenceId'] in pids:
+            p['residenceId'] = merged_id
+        if p['jobId'] in pids:
+            p['jobId'] = merged_id
+        updated_pops.append(p)
+    return merged_point, updated_pops
+
+
+def process_home_node(i, demand, G, points_by_id):
+    home_point = demand['points'][i]
+    home_id = home_point['id']
+    home_node = ox.nearest_nodes(G, Y=home_point['location'][1], X=home_point['location'][0])
+    pops = [p for p in demand['pops'] if p['residenceId'] == home_id]
+    for p in pops:
+        job_id = p['jobId']
+        job_point = points_by_id[job_id]
+        try:
+            job_node = ox.nearest_nodes(G, Y=job_point['location'][1], X=job_point['location'][0])
+            path_nodes = nx.shortest_path(G, home_node, job_node, weight='travel_time')
+            distance_in_meters = nx.path_weight(G, path_nodes, weight='length')
+            travel_time_in_seconds = nx.path_weight(G, path_nodes, weight='travel_time')
+        except:
+            try:
+                # Find closest road segment and project a point onto it
+                x, y = job_point['location']
+                u, v, key = ox.nearest_edges(G, Y=y, X=x)
+                edge_data = G[u][v][key]
+                line = edge_data['geometry']
+                point = Point(x, y)
+                nearest_point = line.interpolate(line.project(point))
+                new_node = max(G.nodes) + 1
+                G.add_node(new_node, x=nearest_point.x, y=nearest_point.y)
+                dist_to_u = Point(G.nodes[u]['x'], G.nodes[u]['y']).distance(nearest_point)
+                dist_to_v = Point(G.nodes[v]['x'], G.nodes[v]['y']).distance(nearest_point)
+                G.add_edge(new_node, u, length=dist_to_u)
+                G.add_edge(new_node, v, length=dist_to_v)
+                job_node = ox.nearest_nodes(G, X=x, Y=y)
+                path_nodes = nx.shortest_path(G, home_node, job_node, weight='travel_time')
+                distance_in_meters = nx.path_weight(G, path_nodes, weight='length')
+                travel_time_in_seconds = nx.path_weight(G, path_nodes, weight='travel_time')
+            except:
+                path_nodes = []
+                distance_in_meters = 0
+                travel_time_in_seconds = 0
+        # Add time penalties for intersections + traffic: 5 seconds per intersection
+        travel_time_in_seconds += len(path_nodes) * 5
+        
+        p['drivingSeconds']  = int(travel_time_in_seconds)
+        p['drivingDistance'] = int(np.ceil(distance_in_meters))
+    return pops
+
+
 def main():
+    start = time.time()
     # Load the configuration file
     with open(sys.argv[1], 'r') as fcfg:
         cfg = json.load(fcfg)
@@ -434,23 +525,12 @@ def main():
 
     # Go through each block - log number of pops and their workplace block
     block_data = {}
-
-    def process_block(block):
-        ret = {}
-        iblock = home == block
-        work_locations = np.unique(work[iblock])
-        for w in work_locations:
-            ipops = work[iblock] == w
-            ret[w] = pops[iblock][ipops].sum()
-        return block, ret
+    
+    process_block_worker = functools.partial(process_block, home=home, work=work, pops=pops)
 
     print("  Processing block data")
-    if platform.system() == "Windows":
-        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-            results = ex.map(process_block, xwalk_ids)
-    else:
-        with Pool(processes=MAX_WORKERS) as pool:
-            results = pool.map(process_block, xwalk_ids)
+    with Pool(processes=MAX_WORKERS) as pool:
+        results = pool.map(process_block_worker, xwalk_ids)
     for res in results:
         block_data[res[0]] = res[1]
 
@@ -696,44 +776,14 @@ def main():
         pops_by_id = {p["id"]: p for p in demand["pops"]}
         
         # Then merge the points
-        def merge_points(inps):
-            ipoint, unique_loc = inps
-            iloc = [ip==ipoint for ip in loc_assignments]
-            these_points = [sorted_points[p] for p in range(len(sorted_points)) if iloc[p]]
-            pids = [p['id'] for p in these_points]
-            merged_id = these_points[size_of_points[iloc].argmax()]['id']
-            if 'merged_' not in merged_id:
-                # To make clear that this point had others merged into it
-                merged_id = 'merged_' + merged_id
-            merged_loc = U.compute_centroid([p['location'] for p in these_points], size_of_points[iloc])
-            merged_jobs = int(np.sum([p['jobs'] for p in these_points]))
-            merged_residents = int(np.sum([p['residents'] for p in these_points]))
-            merged_popIds = []
-            for p in these_points:
-                merged_popIds += p['popIds']
-            merged_popIds = np.unique(merged_popIds).tolist()
-            merged_point = {
-                "id": merged_id,
-                "location": merged_loc,
-                "jobs": merged_jobs,
-                "residents": merged_residents,
-                "popIds": merged_popIds
-            }
-            # Update pops
-            updated_pops = []
-            for popid in merged_popIds:
-                p = copy.deepcopy(pops_by_id[popid])
-                if p['residenceId'] in pids:
-                    p['residenceId'] = merged_id
-                if p['jobId'] in pids:
-                    p['jobId'] = merged_id
-                updated_pops.append(p)
-            return merged_point, updated_pops
-
         print((len(str(counter+1)) + 4) * " " + " Merging")
+        merge_points_worker = functools.partial(merge_points, 
+                                                loc_assignments=loc_assignments, 
+                                                sorted_points=sorted_points, 
+                                                size_of_points=size_of_points,
+                                                pops_by_id=pops_by_id)
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-            #merged_points = list(ex.map(merge_points, enumerate(unique_locs)))
-            results = list(ex.map(merge_points, enumerate(unique_locs)))
+            results = list(ex.map(merge_points_worker, enumerate(unique_locs)))
 
         # Process it
         merged_points = []
@@ -888,7 +938,7 @@ def main():
         air_points = []
         counter = 0
         for iair in range(len(airport)):
-            print(" ", airport[iair])
+            print(" ", airport[iair], airport_daily_passengers[iair])
     
             point = {
                 "id": "AIR_"+airport[iair],
@@ -1133,61 +1183,18 @@ def main():
         G = ox.add_edge_speeds(G)
         G = ox.add_edge_travel_times(G)
         
-        def process_home_node(i):
-            home_point = demand['points'][i]
-            home_id = home_point['id']
-            home_node = ox.nearest_nodes(G, Y=home_point['location'][1], X=home_point['location'][0])
-            pops = [p for p in demand['pops'] if p['residenceId'] == home_id]
-            for p in pops:
-                job_id = p['jobId']
-                job_point = points_by_id[job_id]
-                try:
-                    job_node = ox.nearest_nodes(G, Y=job_point['location'][1], X=job_point['location'][0])
-                    path_nodes = nx.shortest_path(G, home_node, job_node, weight='travel_time')
-                    distance_in_meters = nx.path_weight(G, path_nodes, weight='length')
-                    travel_time_in_seconds = nx.path_weight(G, path_nodes, weight='travel_time')
-                except:
-                    try:
-                        # Find closest road segment and project a point onto it
-                        x, y = job_point['location']
-                        u, v, key = ox.nearest_edges(G, Y=y, X=x)
-                        edge_data = G[u][v][key]
-                        line = edge_data['geometry']
-                        point = Point(x, y)
-                        nearest_point = line.interpolate(line.project(point))
-                        new_node = max(G.nodes) + 1
-                        G.add_node(new_node, x=nearest_point.x, y=nearest_point.y)
-                        dist_to_u = Point(G.nodes[u]['x'], G.nodes[u]['y']).distance(nearest_point)
-                        dist_to_v = Point(G.nodes[v]['x'], G.nodes[v]['y']).distance(nearest_point)
-                        G.add_edge(new_node, u, length=dist_to_u)
-                        G.add_edge(new_node, v, length=dist_to_v)
-                        job_node = ox.nearest_nodes(G, X=x, Y=y)
-                        path_nodes = nx.shortest_path(G, home_node, job_node, weight='travel_time')
-                        distance_in_meters = nx.path_weight(G, path_nodes, weight='length')
-                        travel_time_in_seconds = nx.path_weight(G, path_nodes, weight='travel_time')
-                    except:
-                        path_nodes = []
-                        distance_in_meters = 0
-                        travel_time_in_seconds = 0
-                # Add time penalties for intersections + traffic: 5 seconds per intersection
-                travel_time_in_seconds += len(path_nodes) * 5
-                
-                p['drivingSeconds']  = int(travel_time_in_seconds)
-                p['drivingDistance'] = int(np.ceil(distance_in_meters))
-            return pops
-        
         # Prepare arguments for parallel jobs
         print("Calculating driving paths for each home node.  This may take a while.")
+        
+        process_home_node_worker = functools.partial(process_home_node, 
+                                                     demand=demand, G=G, 
+                                                     points_by_id=points_by_id)
 
-        if platform.system() == "Windows":
-            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-                results = list(ex.map(process_home_node, [i for i in range(0,len(demand["points"]))]))
-        else:
-            with Pool(processes=MAX_WORKERS) as pool:
-                #results = pool.map(process_home_node, range(len(demand['points'])))
-                results = []
-                for r in tqdm(pool.imap(process_home_node, range(len(demand['points']))), total=len(demand['points'])):
-                    results.append(r)
+        with Pool(processes=MAX_WORKERS) as pool:
+            results = []
+            #for r in tqdm(pool.imap(process_home_node_worker, range(len(demand['points']))), total=len(demand['points'])):
+            for r in tqdm(pool.imap(process_home_node_worker, range(10)), total=10):
+                results.append(r)
         
         # Flatten results and update demand
         for ret in results:
@@ -1231,10 +1238,11 @@ def main():
             json.dump(demand, json_file, indent=4)
         else:
             json.dump(demand, json_file, indent=None, separators=(',', ':'))
+    end = time.time()
+    print("Time elapsed:", end-start, "seconds")
 
 
 if __name__ == "__main__":
     import multiprocessing as mp
     mp.freeze_support()
     main()
-
