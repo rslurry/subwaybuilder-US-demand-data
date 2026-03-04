@@ -114,6 +114,32 @@ The input JSON file must have the following fields defined:
     ent_size : list of ints, number of daily visitors to each entertainment location
     ent_pop_size : list of ints, size of each pop created for each entertainment location
 
+    hotels : list of strings, short identifiers for each hotel location
+    hot_loc : list of list of floats, coordinates in [lon, lat] for each hotel location
+    hot_size : list of ints, number of people staying at each hotel
+    hot_pop_size : list of ints, size of each pop created for each hotel location
+    hot_travel_split: list of floats, fraction of hotel visitors that commute to [entertainment locations, airports] on an average day.
+                                Default: [0.5,0.5]
+    
+
+    bases : list of strings, identifier for each base considered.
+                All subsequent base-related parameters must correspond exactly to this ordering.
+
+    base_loc : list of list of floats, coordinates for each base's demand bubble.
+
+    base_merge_within : list of ints, distance in meters to merge any nearby demand points into the new base demand point.
+                        If not provided, values default to 0 so no mergers occur.
+
+    personnel : list of ints, number of employees that work at each base.
+
+    perc_onbase : list of floats, percentage of personnel that live in on-base housing for each base.
+
+    base_pop_size : list of ints, size of each pop created for each base.
+
+    base_perc_travel : list of list of floats, fraction of personnel that live [on base, off base] that travel on an average day.   
+                                Default: [0.3, 0.5]
+    
+
 TODOs:
 - automatically determine list of state(s) based on lat/lon?
 """
@@ -344,7 +370,7 @@ def main():
             print("air_pop_size_remain not specified/understood.  Using MAXPOPSIZE ("+str(MAXPOPSIZE)+") for airport pops assigned by the code.")
             air_pop_size_remain = [MAXPOPSIZE for i in range(len(airport))]
     except Exception as e:
-        print("Error processing airport data:\n", e, "\nDisabling airport pops.")
+        print("Airport data either not provided or missing required parameters:\n", e, "\nDisabling airport pops.")
         airport = False
 
     # University data
@@ -390,7 +416,7 @@ def main():
             univ_perc_travel = [0.3, 0.5]
         assert len(univ_perc_travel) == 2, "univ_pop_size must be a list of 2 values.\nFormat: [% on-campus students that travel daily, % off-campus students that travel daily]"
     except Exception as e:
-        print("Error processing university data:\n", e, "\nDisabling university pops.")
+        print("University data either not provided or missing required parameters:\n", e, "\nDisabling university pops.")
         universities = False
     
     # Entertainment data
@@ -432,9 +458,87 @@ def main():
         else:
             assert len(ent_pop_size) == len(entertainment), str(len(entertainment))+" entertainment locations specified, but "+str(len(ent_pop_size))+" entertainment pop sizes were provided."
     except Exception as e:
-        print("Error processing entertainment data:\n", e, "\nDisabling entertainment pops.")
+        print("Entertainment data either not provided or missing required parameters:\n", e, "\nDisabling entertainment pops.")
         entertainment = False
 
+    # Hotel data
+    try:
+        hotels = cfg['hotels']
+        if not isinstance(hotels, list):
+            hotels = [hotels]
+        hot_loc = cfg['hot_loc']
+        if not isinstance(hot_loc[0], list):
+            hot_loc = [hot_loc]
+        assert len(hot_loc) == len(hotels), str(len(hotels))+" hotel locations specified, but "+str(len(hot_loc))+" hotel locations were provided."
+
+                
+        hot_size = cfg['hot_size']
+        assert len(hot_size) == len(hotels), str(len(hotels))+" hotel locations specified, but "+str(len(hot_size))+"hotel demand sizes were provided."
+        print(f"Total hotel demand = {sum(hot_size)}")
+            
+        try:
+            hot_pop_size = cfg['hot_pop_size']
+        except:
+            print("hot_pop_size not specified/understood.  Using MAXPOPSIZE ("+str(MAXPOPSIZE)+") for hotel pops.")
+            hot_pop_size = [MAXPOPSIZE for i in range(len(hotels))]
+        else:
+            assert len(hot_pop_size) == len(hotels), str(len(hotels))+" hotel locations specified, but "+str(len(hot_pop_size))+" hotel pop sizes were provided."
+
+        try:
+            hot_travel_split = cfg["hot_travel_split"]
+        except:
+            print("hot_travel_split not specified/understood.  Assuming a 50/50 travel split for hotel pops.")
+            hot_pop_size = [0.5,0.5]
+    except Exception as e:
+        print("Hotel data either not provided or missing required parameters:\n", e, "\nDisabling hotels.")
+        hotels = False
+
+    # Military data
+    try:
+        bases = cfg['bases']
+        if not isinstance(bases, list):
+            bases = [bases]
+
+        base_loc = cfg['base_loc']
+        if not isinstance(base_loc[0], list):
+            base_loc = [base_loc]
+        assert len(bases) == len(base_loc), str(len(bases))+" bases provided, but "+str(len(base_loc))+" base locations provided.  There must be one [lon, lat] coordinate value provided per base specified."
+
+        try:
+            base_merge_within = cfg['base_merge_within']
+        except:
+            print("base_merge_within not specified/understood.  No bubbles will be merged around the bases.")
+            base_merge_within = [0 for i in range(len(bases))]
+        assert len(bases) == len(base_merge_within), str(len(bases))+" bases provided, but "+str(len(base_merge_within))+" base distances provided.  There must be one merge distance value provided per base specified."
+
+        personnel = cfg['personnel']
+        if not isinstance(personnel, list):
+            personnel = [personnel]
+        assert len(personnel) == len(bases), str(len(bases))+" bases provided, but "+str(len(personnel))+" personnel counts provided.  There must be one personnel count value provided per base specified."
+
+        perc_onbase = cfg['perc_onbase']
+        if not isinstance(perc_onbase, list):
+            perc_onbase = [perc_onbase]
+        assert len(bases) == len(perc_onbase), str(len(bases))+" bases provided, but "+str(len(perc_onbase))+" % on base values provided.  There must be one % on base value provided per base specified."
+
+
+        try:
+            base_pop_size = cfg['base_pop_size']
+        except:
+            print("base_pop_size not specified/understood.  Using MAXPOPSIZE ("+str(MAXPOPSIZE)+") for base pops.")
+            base_pop_size = [MAXPOPSIZE for i in range(len(bases))]
+        assert len(bases) == len(base_pop_size), str(len(bases))+" bases provided, but "+str(len(base_pop_size))+" pop sizes provided.  There must be one pop size per base specified."
+
+        try:
+            base_perc_travel = cfg['base_perc_travel']
+        except:
+            print("Assuming that 40% of on-base personnel and 70% of off-base personnel travel daily.")
+            base_perc_travel = [0.4, 0.7]
+        assert len(base_perc_travel) == 2, "base_perc_travel must be a list of 2 values.\nFormat: [% on-base personnel that travel daily, % off-base personnel that travel daily]"
+    except:
+        print("Military base data either not provided or missing required parameters:\n", e, "\nDisabling bases.")
+        bases = False
+        
     ###############################################################################
 
     print("Building a demand file for", city)
@@ -933,6 +1037,79 @@ def main():
 
     ###############################################################################
 
+
+    if hotels:
+        print("Adding hotel demand") #SUPER scuffed model for hotel demand
+        #ent_req_residences = []
+        #airport_req_locs = []
+
+        #ent_hotel_pop_count = []
+        #airport_pop_count = []
+        #ent_res_avail = []
+        
+        #for i in range(0,len(ent_loc)):
+        #    ent_req_residences.append([])
+        #    ent_res_avail.append(i)
+        #    ent_hotel_pop_count.append(0)
+        #for i in range(0,len(airport_loc)):
+        #    airport_req_locs.append([])
+        #    airport_pop_count.append(0)
+        #c = 0
+
+        airport_cap_use = []
+        airport_avail = []
+        ent_res_avail = []
+
+        for i in range(0,len(ent_loc)):
+            ent_hotel_pop_count.append(0 + (ent_pop_size[i] * len(ent_req_residences[i])))
+            if ent_hotel_pop_count[i] < ent_size[i]:
+                ent_res_avail.append(i)
+        for i in range(0,len(airport_loc)):
+            airport_res_avail.append(i)
+            airport_cap_use.append(0 + (airport_pop_size[i] * len(airport_req_locs[i])))
+            if airport_daily_passengers[i] < airport_daily_passengers[i]:
+                airport_avail.append(i)
+        c = 0    
+        
+        
+        for ihot in range(len(hotels)):
+            print(f"adding data for hotel {hotels[ihot]} ({ihot} / {len(hotels)})")
+            
+            for i in range (0, round((hot_size[ihot] // MAXPOPSIZE) * hot_travel_split[0],0)):
+                if len(ent_res_avail) > 0: #pick random ent locations that still have capacity
+                    x = np.random.randint(len(ent_res_avail))
+                    targ_idx = ent_res_avail[x]
+                    ent_req_residences[targ_idx].append(hot_loc[ihot])
+                    ent_hotel_pop_count[targ_idx] += MAXPOPSIZE
+                    if ent_hotel_pop_count[targ_idx] + MAXPOP > ent_size[targ_idx]:
+                        ent_res_avail.pop(x)
+                else: #if all are full, just assign randomly
+                    x = np.random.randint(len(ent_loc))
+                    ent_req_residences[x].append(hot_loc[ihot])
+
+            print(f"entertainment pops from hotel: {ent_hotel_pop_count}")
+            
+            for i in range (0, round((airport_daily_passengers[ihot] // MAXPOPSIZE) * hot_travel_split[1],0)):
+                if len(airport_avail) > 0: #pick random airport locations that still have capacity
+                    x = np.random.randint(len(airport_avail))
+                    targ_idx = airport_avail[x]
+                    airport_required_locs[targ_idx].append(hot_loc[ihot])
+                    airport_cap_use[targ_idx] += MAXPOPSIZE
+                    if airport_cap_use[targ_idx] + MAXPOP > airport_daily_passengers[targ_idx]:
+                        airport_avail.pop(x)
+                else: #if all are full, just assign randomly
+                    x = np.random.randint(len(airports))
+                    airport_req_locs[x].append(hot_loc[ihot])
+
+            print(f"airport pops from hotel: {airport_cap_use}")
+
+        print(f"final airport req locs: {airport_req_locs}")
+        print(f"length = {len(airport_req_locs)}")
+        print(f"final ent req locs: {ent_req_residences}")
+        print(f"length = {len(ent_req_residences)}")
+
+    ###############################################################################
+
     if airport:
         print("Adding airport demand to simulate travelers")
         air_points = []
@@ -1168,6 +1345,94 @@ def main():
 
         demand['points'] += ent_points
 
+
+    ###############################################################################
+    
+    if bases:
+        print("Adding base demand")
+        base_points = []
+        for ibase in range(len(bases)):
+            print(" ", bases[ibase], personnel[ibase], perc_onbase[ibase])
+            onbase = int(perc_onbase[ibase] * personnel[ibase]) # live on base, "work" elsewhere
+            offbase = personnel[ibase] - onbase # "work" on base, live elsewhere
+            point = {
+                "id": bases[ibase],
+                "location": base_loc[ibase],
+                "jobs": 0,
+                "residents": 0,
+                "popIds": []
+            }
+            
+            if base_merge_within[ibase]:
+                # Merge nearby points into this one
+                point_locs = np.array([p['location'] for p in demand['points']])
+                dists = U.haversine(point['location'][0], point['location'][1], 
+                                    point_locs[:,0], point_locs[:,1])
+                iloc_merge = np.arange(len(demand['points']), dtype=int)[dists <= base_merge_within[ibase]][::-1] # largest to smallest
+                pops_by_id = {p["id"]: p for p in demand["pops"]}
+                for iloc in iloc_merge:
+                    point['jobs'] += demand['points'][iloc]['jobs']
+                    point['residents'] += demand['points'][iloc]['residents']
+                    point['popIds'] += demand['points'][iloc]['popIds']
+                    for popid in demand['points'][iloc]['popIds']:
+                        if pops_by_id[popid]['residenceId'] == demand['points'][iloc]['id']:
+                            pops_by_id[popid]['residenceId'] = point['id']
+                        if pops_by_id[popid]['jobId'] == demand['points'][iloc]['id']:
+                            pops_by_id[popid]['jobId'] = point['id']
+                    del demand['points'][iloc]
+            
+            # On-base pops
+            point_locs = np.array([p['location'] for p in demand['points']])
+            iloc_airport = [p['id'][:4] == "AIR_" for p in demand['points']]
+            size_of_points = np.array([p['jobs'] for p in demand['points']])
+            size_of_points[iloc_airport] = 0 # Don't consider the airport
+            dist_of_points = U.haversine(point['location'][0], point['location'][1], 
+                                         point_locs[:,0], point_locs[:,1])
+            weight_of_points = size_of_points / dist_of_points**2 # Prefer places near base
+            ilocs = np.random.choice(weight_of_points.size, 
+                                     size=int((onbase * base_perc_travel[0])//base_pop_size[ibase]), 
+                                     p=weight_of_points/weight_of_points.sum())
+            for i, iloc in enumerate(ilocs):
+                pop = {
+                        "id" :bases[ibase] + "_" + str(i+1),
+                        "residenceId" : point["id"],
+                        "jobId" : demand['points'][iloc]["id"],
+                        "size" : int(base_pop_size[ibase]),
+                        "drivingSeconds"  : 0,
+                        "drivingDistance" : 0
+                }
+                demand['pops'].append(pop)
+                demand['points'][iloc]['jobs'] += pop['size']
+                point["residents"] += pop['size']
+                demand['points'][iloc]['popIds'].append(pop['id'])
+                point['popIds'].append(pop['id'])
+
+            # Off-base pops
+            size_of_points = np.array([p['residents'] for p in demand['points']])
+            size_of_points[iloc_airport] = 0 # Don't consider the airport
+            dist_of_points = U.haversine(point['location'][0], point['location'][1], 
+                                         point_locs[:,0], point_locs[:,1])
+            weight_of_points = size_of_points / dist_of_points
+            ilocs = np.random.choice(weight_of_points.size, 
+                                     size=int((offbase * base_perc_travel[1])//base_pop_size[ibase]), 
+                                     p=weight_of_points/weight_of_points.sum())
+            for j, iloc in enumerate(ilocs):
+                pop = {
+                        "id" :  bases[ibase] + "_" + str(i+j+2),
+                        "residenceId" : demand['points'][iloc]["id"],
+                        "jobId" : point["id"],
+                        "size" : int(base_pop_size[ibase]),
+                        "drivingSeconds"  : 0,
+                        "drivingDistance" : 0
+                }
+                demand['pops'].append(pop)
+                demand['points'][iloc]['residents'] += pop['size']
+                point["jobs"] += pop['size']
+                demand['points'][iloc]['popIds'].append(pop['id'])
+                point['popIds'].append(pop['id'])
+            base_points.append(point)
+
+        demand['points'] += base_points
 
     ###############################################################################
 
