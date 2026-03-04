@@ -1457,8 +1457,7 @@ def main():
 
         with Pool(processes=MAX_WORKERS) as pool:
             results = []
-            #for r in tqdm(pool.imap(process_home_node_worker, range(len(demand['points']))), total=len(demand['points'])):
-            for r in tqdm(pool.imap(process_home_node_worker, range(10)), total=10):
+            for r in tqdm(pool.imap(process_home_node_worker, range(len(demand['points']))), total=len(demand['points'])):
                 results.append(r)
         
         # Flatten results and update demand
