@@ -370,7 +370,7 @@ def main():
             print("air_pop_size_remain not specified/understood.  Using MAXPOPSIZE ("+str(MAXPOPSIZE)+") for airport pops assigned by the code.")
             air_pop_size_remain = [MAXPOPSIZE for i in range(len(airport))]
     except Exception as e:
-        print("Error processing airport data:\n", e, "\nDisabling airport pops.")
+        print("Airport data either not provided or missing required parameters:\n", e, "\nDisabling airport pops.")
         airport = False
 
     # University data
@@ -416,7 +416,7 @@ def main():
             univ_perc_travel = [0.3, 0.5]
         assert len(univ_perc_travel) == 2, "univ_pop_size must be a list of 2 values.\nFormat: [% on-campus students that travel daily, % off-campus students that travel daily]"
     except Exception as e:
-        print("Error processing university data:\n", e, "\nDisabling university pops.")
+        print("University data either not provided or missing required parameters:\n", e, "\nDisabling university pops.")
         universities = False
     
     # Entertainment data
@@ -458,7 +458,7 @@ def main():
         else:
             assert len(ent_pop_size) == len(entertainment), str(len(entertainment))+" entertainment locations specified, but "+str(len(ent_pop_size))+" entertainment pop sizes were provided."
     except Exception as e:
-        print("Error processing entertainment data:\n", e, "\nDisabling entertainment pops.")
+        print("Entertainment data either not provided or missing required parameters:\n", e, "\nDisabling entertainment pops.")
         entertainment = False
 
     # Hotel data
@@ -532,9 +532,9 @@ def main():
         try:
             base_perc_travel = cfg['base_perc_travel']
         except:
-            print("Assuming that 30% of on-site employees and 50% of off-site employees travel daily.")
-            base_perc_travel = [0.3, 0.5]
-        assert len(base_perc_travel) == 2, "base_pop_size must be a list of 2 values.\nFormat: [% on-base employees that travel daily, % off-base employees that travel daily]"
+            print("Assuming that 40% of on-base personnel and 70% of off-base personnel travel daily.")
+            base_perc_travel = [0.4, 0.7]
+        assert len(base_perc_travel) == 2, "base_perc_travel must be a list of 2 values.\nFormat: [% on-base personnel that travel daily, % off-base personnel that travel daily]"
     except:
         print("Military base data either not provided or missing required parameters:\n", e, "\nDisabling bases.")
         bases = False
