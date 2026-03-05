@@ -91,14 +91,14 @@ See the examples/ directory for example JSON input files used for some of the ma
   <tr>
     <td>HUMAN_READABLE</td>
     <td>(optional)<br>bool</td>
-    <td>Indent JSON output for readability.<br>Default: false.</td>
+    <td>Indent JSON output for readability.<br><b>Default:</b> false.</td>
     <td><code>true</code></td>
   </tr>
 
   <tr>
     <td>MAX_WORKERS</td>
     <td>(optional)<br>int</td>
-    <td>Number of workers for parallel processing.<br>Default: None (as many threads as you have).</td>
+    <td>Number of workers for parallel processing.<br><b>Default:</b> None (as many threads as you have).</td>
     <td><code>4</code></td>
   </tr>
 </table>
@@ -129,8 +129,8 @@ See the examples/ directory for example JSON input files used for some of the ma
   <tr>
     <td>ROUTING_METHOD</td>
     <td>(optional)<br>string</td>
-    <td>Method to use when calculating routes.<br><b>Options:</b> <code>osmnx</code>, <code>osrm</code><br><b>Note:</b> when using OSRM, you must have already set up a local OSRM server on port 5000 for the specified <code>bbox</code>.</td>
-    <td>Default: <code>osmnx</code></td>
+    <td>Method to use when calculating routes.<br><b>Options:</b> <code>osmnx</code>, <code>osrm</code><br><b>Note:</b> when using OSRM, you must have already set up a local OSRM server on port 5000 for the specified <code>bbox</code>.<br><b>Default:</b> <code>osmnx</code></td>
+    <td><code>osmnx</code></td>
   </tr>
 
   <tr>
@@ -157,21 +157,21 @@ See the examples/ directory for example JSON input files used for some of the ma
   <tr>
     <td>MAX_POP_THRESHOLD</td>
     <td>(optional)<br>list of int</td>
-    <td>Demand point size thresholds for Colin's clustering approach.<br>Colin uses: <code>[200, 500, 5000, 15000, Infinity]</code><br>Default: <code>[25, 50, 75, 200, 500, 5000, 15000, Infinity]</code></td>
+    <td>Demand point size thresholds for Colin's clustering approach.<br>Colin uses: <code>[200, 500, 5000, 15000, Infinity]</code><br><b>Default:</b> <code>[25, 50, 75, 200, 500, 5000, 15000, Infinity]</code></td>
     <td><code>[25, 50, 75, 200, 500, 5000, 15000, Infinity]</code></td>
   </tr>
 
   <tr>
     <td>BUFFER_METERS</td>
     <td>(optional)<br>list of int or float</td>
-    <td>Distance from demand points to merge when using Colin's clustering approach.<br>Must match MAXPOPTHRESHOLD in length.<br>Colin uses: <code>[250, 200, 150, 125, 100]</code><br>Default: <code>[1500, 1000, 500, 250, 200, 150, 125, 100]</code></td>
+    <td>Distance from demand points to merge when using Colin's clustering approach.<br>Must match MAXPOPTHRESHOLD in length.<br>Colin uses: <code>[250, 200, 150, 125, 100]</code><br><b>Default:</b> <code>[1500, 1000, 500, 250, 200, 150, 125, 100]</code></td>
     <td><code>[1500, 1000, 500, 250, 200, 150, 125, 100]</code></td>
   </tr>
 
   <tr>
     <td>DEMAND_FACTOR</td>
     <td>(optional)<br>float</td>
-    <td>Multiplier for all LODES pop sizes.</td>
+    <td>Multiplier for all LODES pop sizes.<br><b>Default:</b> <code>1</code></td>
     <td><code>2</code></td>
   </tr>
 
