@@ -34,6 +34,10 @@ The input JSON file must have the following fields defined:
     CALCULATE_ROUTES : bool, determines whether to calculate commuting routes.  
                              Recommended to set this to false when initially testing out boundaries and clustering.
                        Example: true
+    ROUTING_METHOD : str, determines the method to use when calculating routes between home and job nodes.
+                          Options: osmnx, osrm
+                          Note: osrm requires a local OSRM server to be set up and running for the specified `bbox`.
+                          Default: osmnx
     SMALL_THRESHOLD : int, maximum pop size considered for agglomerative clustering.  
                            Pops smaller than this size will be merged with other nearby pops that work at the same location.
                       Example: 100
@@ -317,6 +321,23 @@ def main():
     # Map info
     bbox = cfg['bbox']
     cbd_bbox = cfg['cbd_bbox']
+    
+    if CALCULATE_ROUTES:
+        try:
+            ROUTING_METHOD = cfg['ROUTING_METHOD'].lower()
+            assert ROUTING_METHOD in ['osmnx', 'osrm'], "`ROUTING_METHOD` must be either 'osmnx' or 'osrm', but received "+ROUTING_METHOD
+            if ROUTING_METHOD == 'osrm':
+                # Make test request to be sure that the local server is running
+                response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
+                                        str(np.round((bbox[0]+bbox[2])/2., 5))+","+\
+                                        str(np.round((bbox[1]+bbox[3])/2., 5)))
+                assert response.status_code == 200, "osrm routing requested, but unable to get a " + \
+                           "request from the local osrm server.  " + \
+                           "Are you sure it's running on port 5000 and covers the specified `bbox`?"
+        except:
+            ROUTING_METHOD = 'osmnx'
+        print("Using", ROUTING_METHOD, "to calculate routes")
+    
     city = cfg['city']
     airport = cfg['airport']
     if not isinstance(airport, list):
@@ -535,7 +556,7 @@ def main():
             print("Assuming that 40% of on-base personnel and 70% of off-base personnel travel daily.")
             base_perc_travel = [0.4, 0.7]
         assert len(base_perc_travel) == 2, "base_perc_travel must be a list of 2 values.\nFormat: [% on-base personnel that travel daily, % off-base personnel that travel daily]"
-    except:
+    except Exception as e:
         print("Military base data either not provided or missing required parameters:\n", e, "\nDisabling bases.")
         bases = False
         
@@ -582,10 +603,10 @@ def main():
             xwalk_header = next(reader)
             xwalk_rows = np.array([row for row in reader], dtype=str)
 
-        xwalk_ids = xwalk_rows[:,0].astype(int)
-        xwalk_trct = xwalk_rows[:,6].astype(int)
-        xwalk_lat = xwalk_rows[:,-3].astype(float)
-        xwalk_lon = xwalk_rows[:,-2].astype(float)
+        xwalk_ids  = xwalk_rows[:, 0].astype(int)
+        xwalk_trct = xwalk_rows[:, 6].astype(int)
+        xwalk_lat  = xwalk_rows[:,-3].astype(float)
+        xwalk_lon  = xwalk_rows[:,-2].astype(float)
 
         xwalk_keep = (xwalk_lon >= bbox[0]) * (xwalk_lat >= bbox[1]) * \
                      (xwalk_lon <= bbox[2]) * (xwalk_lat <= bbox[3])
@@ -1441,30 +1462,71 @@ def main():
         points_by_id = {p["id"]: p for p in demand["points"]}
         pops_by_id   = {p["id"]: p for p in demand["pops"  ]}
         
-        # Set up OSM graph
-        print("Initializing OSM drive network graph")
-        G = ox.graph_from_bbox(bbox, network_type='drive')#, simplify=False)
-        G = ox.truncate.largest_component(G, strongly=True)
-        G = ox.add_edge_speeds(G)
-        G = ox.add_edge_travel_times(G)
-        
-        # Prepare arguments for parallel jobs
-        print("Calculating driving paths for each home node.  This may take a while.")
-        
-        process_home_node_worker = functools.partial(process_home_node, 
-                                                     demand=demand, G=G, 
-                                                     points_by_id=points_by_id)
+        if ROUTING_METHOD == "osmnx":
+            # Set up OSM graph
+            print("Initializing OSM drive network graph")
+            G = ox.graph_from_bbox(bbox, network_type='drive')#, simplify=False)
+            G = ox.truncate.largest_component(G, strongly=True)
+            G = ox.add_edge_speeds(G)
+            G = ox.add_edge_travel_times(G)
+            
+            # Prepare arguments for parallel jobs
+            print("Calculating driving paths for each home node.  This may take a while.")
+            
+            process_home_node_worker = functools.partial(process_home_node, 
+                                                         demand=demand, G=G, 
+                                                         points_by_id=points_by_id)
 
-        with Pool(processes=MAX_WORKERS) as pool:
-            results = []
-            for r in tqdm(pool.imap(process_home_node_worker, range(len(demand['points']))), total=len(demand['points'])):
-                results.append(r)
-        
-        # Flatten results and update demand
-        for ret in results:
-            for pop in ret:
-                pops_by_id[pop['id']]['drivingSeconds']  = pop['drivingSeconds']
-                pops_by_id[pop['id']]['drivingDistance'] = pop['drivingDistance']
+            with Pool(processes=MAX_WORKERS) as pool:
+                results = []
+                for r in tqdm(pool.imap(process_home_node_worker, range(len(demand['points']))), total=len(demand['points'])):
+                    results.append(r)
+            
+            # Flatten results and update demand
+            for ret in results:
+                for pop in ret:
+                    pops_by_id[pop['id']]['drivingSeconds']  = pop['drivingSeconds']
+                    pops_by_id[pop['id']]['drivingDistance'] = pop['drivingDistance']
+        elif ROUTING_METHOD == "osrm":
+            for ipoint in range(len(demand['points'])):
+                    home_point = demand['points'][ipoint]
+                    home_id = home_point['id']
+                    # Get nearest point
+                    response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
+                                            str(home_point['location'][0])+","+\
+                                            str(home_point['location'][1]))
+                    if response.status_code != 200:
+                        print("Invalid response for home point", home_id)
+                        print("Skipping.")
+                        continue
+                    home_node_loc = response.json()['waypoints'][0]['location']
+                    pops = [p for p in demand['pops'] if p['residenceId'] == home_id]
+                    for p in pops:
+                        job_id = p['jobId']
+                        job_point = points_by_id[job_id]
+                        # Get nearest point
+                        response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
+                                    str(job_point['location'][0])+","+\
+                                    str(job_point['location'][1]))
+                        if response.status_code != 200:
+                            print("Invalid response for home point", home_id, "at job point", job_id)
+                            print("Skipping.")
+                            continue
+                        job_node_loc = response.json()['waypoints'][0]['location']
+                        # Get route
+                        response = requests.get("http://localhost:5000/route/v1/driving/"+\
+                                    str(home_node_loc[0])+","+\
+                                    str(home_node_loc[1])+";"+\
+                                    str(job_node_loc [0])+","+\
+                                    str(job_node_loc [1]))
+                        if response.status_code != 200:
+                            print("Invalid response for route between home point", home_id, "and job point", job_id)
+                            print("Skipping.")
+                            continue
+                        resp = response.json()
+                        p['drivingSeconds']  = int(resp['routes'][0]['duration'])
+                        p['drivingDistance'] = int(resp['routes'][0]['distance'])
+
 
     ###############################################################################
 
