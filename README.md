@@ -127,6 +127,13 @@ See the examples/ directory for example JSON input files used for some of the ma
   </tr>
 
   <tr>
+    <td>ROUTING_METHOD</td>
+    <td>(optional)<br>string</td>
+    <td>Method to use when calculating routes.<br>Options: <code>osmnx</code>, <code>osrm</code><br>Note: when using OSRM, you must have already set up a local OSRM server on port 5000 for the specified <code>bbox</code>.</td>
+    <td>Default: <code>osmnx</code></td>
+  </tr>
+
+  <tr>
     <td>SMALL_THRESHOLD</td>
     <td>int</td>
     <td>Max pop size considered for agglomerative clustering.</td>
