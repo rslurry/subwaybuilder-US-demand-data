@@ -78,14 +78,14 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>bbox</td>
-    <td>list of ints</td>
-    <td>[min_lon, min_lat, max_lon, max_lat] boundary for the city.</td>
-    <td><code>[-77.8216, 43.0089, -77.399, 43.3117]</code></td>
+    <td>list of floats OR dict with "type" and "bounds" (list of floats) or "coordinates" (list of list of floats)</td>
+    <td>Boundary for the city.<br>"type" must be either "box" or "polygon".<br>If "type" = "box": "bounds": [min_lon, min_lat, max_lon, max_lat].<br>If "type" = "polygon": "coordinates": [[lon1, lat1], [lon2, lat2], ..., [lonN, latN]]. The first and last coordinate pairs must be identical.</td>
+    <td><code>[-77.8216, 43.0089, -77.399, 43.3117]</code><br><code>{"type" : "box", "bounds" : [-77.8216, 43.0089, -77.3990, 43.3117]}</code><br><code>{"type" : "polygon", "coordinates" : [[-77.8216, 43.0089], [-77.3990, 43.0089], [-77.3990, 43.3117], [-77.8216, 43.3117], [-77.8216, 43.0089]]</code></td>
   </tr>
 
   <tr>
     <td>cbd_bbox</td>
-    <td>list of ints</td>
+    <td>list of floats</td>
     <td>CBD boundary; reduces clustering downtown.<br>Set to null to disable.</td>
     <td><code>null</code></td>
   </tr>
