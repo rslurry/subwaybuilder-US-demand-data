@@ -15,9 +15,20 @@ The input JSON file must have the following fields defined:
             Example: ["md", "dc", "va"]
     year : int, the year you want to use for the LODES data.  At the time of writing, it must be within 2002-2023.  
            Example: 2022
-    bbox : list of ints, the [min_lon, min_lat, max_lon, max_lat] boundary for the city.  
-           Example: [-77.8216, 43.0089, -77.399, 43.3117],
-    cbd_bbox : list of ints, exactly like `bbox` except for the Central Business District.  
+    bbox : list of floats OR dict with "type" and "bounds" (list of floats) or "coordinates" (list of list of floats).
+           "type" must be either "box" or "polygon".
+           If "type" = "box":
+               "bounds": The [min_lon, min_lat, max_lon, max_lat] boundary for the map. 
+           If "type" = "polygon":
+               "coordinates": [[lon1, lat1], [lon2, lat2], ..., [lonN, latN]] that defines the polygon boundary for the map.
+               The first and last coordinate pairs must be identical.
+           Examples: [-77.8216, 43.0089, -77.3990, 43.3117]
+                     {"type" : "box", 
+                      "bounds" : [-77.8216, 43.0089, -77.3990, 43.3117]}
+                     {"type" : "polygon",
+                      "coordinates" : [[-77.8216, 43.0089], [-77.3990, 43.0089], [-77.3990, 43.3117],
+                                       [-77.8216, 43.3117], [-77.8216, 43.0089]]
+    cbd_bbox : list of floats, like "bounds" for `bbox` when "type"="box". Defines the Central Business District.  
                              Can be used to reduce clustering for the downtown area.  
                              To disable, set this to null.
                Example: null
@@ -162,11 +173,11 @@ import time
 import numpy as np
 import geopandas as gpd
 from shapely.ops import unary_union, polygonize
-from shapely.geometry import Point
+from shapely.geometry import Point, Polygon
+from shapely.prepared import prep
 from tqdm import tqdm
 import osmnx as ox
 import networkx as nx
-import platform
 
 from collections import defaultdict
 from sklearn.cluster import AgglomerativeClustering
@@ -321,6 +332,13 @@ def main():
     # Map info
     bbox = cfg['bbox']
     cbd_bbox = cfg['cbd_bbox']
+    # For backward compatibility
+    if isinstance(bbox, list):
+        bbox = {"type" : "box", "bounds" : bbox}
+    assert bbox["type"] in ["box", "polygon"], "Invalid bbox type provided.  Must be 'box' or 'polygon'."
+    if bbox["type"] == "polygon":
+        assert np.all(bbox["coordinates"][0] == bbox["coordinates"][-1]), \
+            "'polygon' bounding box specified, but the first and last coordinates do not match."
     
     if CALCULATE_ROUTES:
         try:
@@ -330,9 +348,14 @@ def main():
         assert ROUTING_METHOD in ['osmnx', 'osrm'], "`ROUTING_METHOD` must be either 'osmnx' or 'osrm', but received "+ROUTING_METHOD
         if ROUTING_METHOD == 'osrm':
             # Make test request to be sure that the local server is running
-            response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
-                                    str(np.round((bbox[0]+bbox[2])/2., 5))+","+\
-                                    str(np.round((bbox[1]+bbox[3])/2., 5)))
+            if bbox["type"] == "box":
+                response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
+                                        str(np.round((bbox["bounds"][0]+bbox["bounds"][2])/2., 5))+","+\
+                                        str(np.round((bbox["bounds"][1]+bbox["bounds"][3])/2., 5)))
+            elif bbox["type"] == "polygon":
+                response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
+                                        str(np.round(np.mean(bbox["coordinates"], axis=0)[0], 5))+","+\
+                                        str(np.round(np.mean(bbox["coordinates"], axis=0)[1], 5)))
             assert response.status_code == 200, "osrm routing requested, but unable to get a " + \
                        "request from the local osrm server.  " + \
                        "Are you sure it's running on port 5000 and covers the specified `bbox`?"
@@ -419,6 +442,8 @@ def main():
         except:
             print("univ_merge_within not specified/understood.  No bubbles will be merged around the universities.")
             univ_merge_within = [0 for i in range(len(universities))]
+        if not len(univ_merge_within):
+            univ_merge_within = [0 for i in range(len(universities))]
         assert len(universities) == len(univ_merge_within), str(len(universities))+" universities provided, but "+str(len(univ_merge_within))+" merge distances provided.  There must be one merge distance value provided per university specified."
     
         students = cfg['students']
@@ -464,6 +489,8 @@ def main():
             ent_merge_within = cfg['ent_merge_within']
         except:
             print("ent_merge_within not specified/understood.  No bubbles will be merged around the entertainment points.")
+            ent_merge_within = [0 for i in range(len(entertainment))]
+        if not len(ent_merge_within):
             ent_merge_within = [0 for i in range(len(entertainment))]
         assert len(entertainment) == len(ent_merge_within), str(len(entertainment))+" entertainment points provided, but "+str(len(ent_merge_within))+" merge distances provided.  There must be one merge distance value provided per entertainment points specified."
         
@@ -616,9 +643,24 @@ def main():
         xwalk_trct = xwalk_rows[:, 6].astype(int)
         xwalk_lat  = xwalk_rows[:,-3].astype(float)
         xwalk_lon  = xwalk_rows[:,-2].astype(float)
+        
+        if bbox["type"] == "box":
+            min_lon, min_lat, max_lon, max_lat = bbox["bounds"]
 
-        xwalk_keep = (xwalk_lon >= bbox[0]) * (xwalk_lat >= bbox[1]) * \
-                     (xwalk_lon <= bbox[2]) * (xwalk_lat <= bbox[3])
+            xwalk_keep = (
+                (xwalk_lon >= min_lon) &
+                (xwalk_lat >= min_lat) &
+                (xwalk_lon <= max_lon) &
+                (xwalk_lat <= max_lat)
+            )
+        elif bbox["type"] == "polygon":
+            poly = Polygon(bbox["coordinates"])
+            prepared = prep(poly)
+
+            xwalk_keep = np.array([
+                prepared.covers(Point(lon, lat))
+                for lon, lat in zip(xwalk_lon, xwalk_lat)
+            ])
 
         xwalk_ids = xwalk_ids[xwalk_keep]
         xwalk_trct = xwalk_trct[xwalk_keep]
@@ -1474,7 +1516,10 @@ def main():
         if ROUTING_METHOD == "osmnx":
             # Set up OSM graph
             print("Initializing OSM drive network graph")
-            G = ox.graph_from_bbox(bbox, network_type='drive')#, simplify=False)
+            if bbox["type"] == "box":
+                G = ox.graph_from_bbox(bbox, network_type='drive')#, simplify=False)
+            elif bbox["type"] == "polygon":
+                G = ox.graph_from_polygon(poly, network_type='drive')#, simplify=False)
             G = ox.truncate.largest_component(G, strongly=True)
             G = ox.add_edge_speeds(G)
             G = ox.add_edge_travel_times(G)
@@ -1504,7 +1549,7 @@ def main():
                 home_point = demand['points'][ipoint]
                 home_id = home_point['id']
                 # Get nearest point
-                time.sleep(0.001)
+                time.sleep(0.002)
                 response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
                                         str(home_point['location'][0])+","+\
                                         str(home_point['location'][1]))
@@ -1518,7 +1563,7 @@ def main():
                     job_id = p['jobId']
                     job_point = points_by_id[job_id]
                     # Get nearest point
-                    time.sleep(0.001)
+                    time.sleep(0.002)
                     response = requests.get("http://localhost:5000/nearest/v1/driving/"+\
                                             str(job_point['location'][0])+","+\
                                             str(job_point['location'][1]))
@@ -1528,7 +1573,7 @@ def main():
                         continue
                     job_node_loc = response.json()['waypoints'][0]['location']
                     # Get route
-                    time.sleep(0.001)
+                    time.sleep(0.002)
                     response = requests.get("http://localhost:5000/route/v1/driving/"+\
                                             str(home_node_loc[0])+","+\
                                             str(home_node_loc[1])+";"+\
