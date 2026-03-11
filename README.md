@@ -5,6 +5,8 @@ process is used.  If you disable the agglomeration, or use small values for aggl
 likely that the resulting demand data will lag when used in Subway Builder.  See the examples for 
 reasonable values you can use for most cities.
 
+**Uncredited contributors:** DanielD1909 (polygon bounding boxes)
+
 
 # Setting up the environment
 If running the Python code directly rather than a pre-compiled release, use the provided 
