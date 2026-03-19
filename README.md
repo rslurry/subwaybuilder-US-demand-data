@@ -204,7 +204,7 @@ See the examples/ directory for example JSON input files used for some of the ma
   <tr>
     <td>airport</td>
     <td>list of strings</td>
-    <td>IATA codes for local airports; first uniquely identifies the city.</td>
+    <td>IATA codes for local airports.</td>
     <td><code>["ROC"]</code></td>
   </tr>
 
