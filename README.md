@@ -8,6 +8,38 @@ reasonable values you can use for most cities.
 **Uncredited contributors:** DanielD1909 (polygon bounding boxes)
 
 
+# Running the code
+The code is compatible with Linux and Mac.  Windows users are advised to use WSL to run
+the Linux file in the latest release (or run the raw Python code) within WSL.  I could make 
+a Windows-specific exe, but that's just one more thing to maintain and I can't personally 
+test it out, so this is the way it works.
+
+This script is meant to be run like
+
+    ./create_US_demand_file.py Rochester.json
+
+If you are running the .py file, you must set up your Python environment for that.  See 
+the [Setting up the environment section](#setting-up-the-environment) for details on that.
+
+If you're downloading a pre-compiled release (recommended - avoids needing to install anything, including Python), 
+then it might look something like
+
+    ./create_US_demand_file.bin Rochester.json
+
+The executable file's name will vary depending on your OS and architecture.
+
+You must provide an input JSON file.  If it is not specified when you run the script, the code 
+will prompt you to enter a path to the input JSON file.  
+Below the [Parameters section](#parameters) lists all available parameters for the input file.
+Some parameters are optional, as specified.  If you omit them, the code will assume the specified default.
+[Airports](#airport‑related-parameters), [universities](#university‑related-arameters), 
+[entertainment](#entertainment-related-parameters), [hotels](#hotel‑related-parameters) and 
+[military bases](#military-base‑related-parameters) are entirely optional.  For these categories, 
+only the optional parameters within that category are listed as optional.  If you intend to use one 
+of these categories, you must provide all required parameters within that category.
+See the examples/ directory for example JSON input files used for some of the maps shared on the Discord.
+
+
 # Setting up the environment
 If running the Python code directly rather than a pre-compiled release, use the provided 
 environment.yml file to create a compatible conda environment.  That recipe is confirmed to work as of 
@@ -24,26 +56,6 @@ Once you have conda, build the environment via
 If this fails on your OS/architecture, @slurry in the Discord and provide as much detail as possible.
 
 
-# Running the code
-The code is compatible with Linux and Mac.  Sorry Windows users, blame Microsoft for not following basic 
-conventions when forking processes.  The recommended solution for Windows users is to use WSL, then use 
-the Linux file in the latest release (or run the raw Python code) within WSL.  If someone is willing to 
-refactor the code in a way that runs on Windows and preserves performance on Linux and Mac, I would love 
-that - please pull request these changes if you go through the effort to do that.
-
-This script is meant to be run like
-
-    ./create_US_demand_file.py Rochester.json
-
-If you're downloading a pre-compiled release, then it might look something like
-
-    ./create_US_demand_file.bin Rochester.json
-
-You must provide an input JSON file.  Below are all available parameters for this input file.
-Some parameters are optional: a few parameters that govern how the code runs, airport required locations and pop sizes, some parameters for universities, and all entertainment-related parameters.
-If omitted or not properly specified, they will be ignored.
-All other parameters are required.
-See the examples/ directory for example JSON input files used for some of the maps shared on the Discord.
 
 # Parameters
 ## Core City & Map Parameters
@@ -231,22 +243,22 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>airport_required_locs</td>
-    <td>list of list of list of floats</td>
-    <td>Preferred residence locations for airport travelers.</td>
+    <td>(optional)<br>list of list of list of floats</td>
+    <td>Preferred residence locations for airport travelers.<br><b>Default:</b> not used.</td>
     <td><code>[[[-77.61298, 43.15729], ...]]</code></td>
   </tr>
 
   <tr>
     <td>air_pop_size_req</td>
-    <td>list of ints</td>
-    <td>Pop sizes assigned via airport_required_locs.</td>
+    <td>(optional)<br>list of ints</td>
+    <td>Pop sizes assigned via airport_required_locs.<br><b>Default:</b> <code>MAXPOPSIZE</code></td>
     <td><code>[200]</code></td>
   </tr>
 
   <tr>
     <td>air_pop_size_remain</td>
-    <td>list of ints</td>
-    <td>Remaining airport pop sizes assigned automatically.</td>
+    <td>(optional)<br>list of ints</td>
+    <td>Remaining airport pop sizes assigned automatically.<br><b>Default:</b> <code>MAXPOPSIZE</code></td>
     <td><code>[150]</code></td>
   </tr>
 </table>
@@ -276,15 +288,15 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>univ_req_residence</td>
-    <td>list of list of list of floats</td>
-    <td>Like <code>airport_required_locs</code>. Set residences for each university.</td>
+    <td>(optional)<br>list of list of list of floats</td>
+    <td>Like <code>airport_required_locs</code>. Set residences for each university.<br><b>Default:</b> not used.</td>
     <td><code>[[[-77.62668, 43.12989], ...], [], ...]</code></td>
   </tr>
 
   <tr>
     <td>univ_merge_within</td>
-    <td>list of ints</td>
-    <td>Merge distance (meters) for nearby demand points.</td>
+    <td>(optional)<br>list of ints</td>
+    <td>Merge distance (meters) for nearby demand points.<br><b>Default:</b> 0 for all points.</td>
     <td><code>[0, 350, 300, 0, 0]</code></td>
   </tr>
 
@@ -304,15 +316,15 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>univ_pop_size</td>
-    <td>list of ints</td>
-    <td>Pop size created for each university.</td>
+    <td>(optional)<br>list of ints</td>
+    <td>Pop size created for each university.<br><b>Default:</b> <code>MAXPOPSIZE</code></td>
     <td><code>[75, 75, 75, 75, 75]</code></td>
   </tr>
 
   <tr>
     <td>univ_perc_travel</td>
-    <td>list of list of floats</td>
-    <td>Fraction of students [on‑campus, off‑campus] who travel daily.</td>
+    <td>(optional)<br>list of list of floats</td>
+    <td>Fraction of students [on‑campus, off‑campus] who travel daily.<br><b>Default:</b> <code>[0.3, 0.5]</code></td>
     <td><code>[0.3, 0.5]</code></td>
   </tr>
 </table>
@@ -344,15 +356,15 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>ent_merge_within</td>
-    <td>list of ints</td>
-    <td>Merge distance (meters) for entertainment demand points.</td>
+    <td>(optional)<br>list of ints</td>
+    <td>Merge distance (meters) for entertainment demand points.<br><b>Default:</b> 0 for all points.</td>
     <td><code>[0, 0, 0]</code></td>
   </tr>
 
   <tr>
     <td>ent_req_residences</td>
-    <td>list of list of list</td>
-    <td>Like airport_required_locs. Required residence locations for entertainment visitors.</td>
+    <td>(optional)<br>list of list of list</td>
+    <td>Like airport_required_locs. Required residence locations for entertainment visitors.<br><b>Default:</b> not used.</td>
     <td><code>[]</code></td>
   </tr>
 
@@ -365,8 +377,8 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>ent_pop_size</td>
-    <td>list of ints</td>
-    <td>Pop size created for each entertainment location.</td>
+    <td>(optional)<br>list of ints</td>
+    <td>Pop size created for each entertainment location.<br><b>Default:</b> <code>MAXPOPSIZE</code></td>
     <td><code>[200, 200, 200]</code></td>
   </tr>
 
@@ -404,15 +416,15 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>hot_pop_size</td>
-    <td>list of ints</td>
-    <td>Pop size created for each hotel location.</td>
+    <td>(optional)<br>list of ints</td>
+    <td>Pop size created for each hotel location.<br><b>Default:</b> <code>MAXPOPSIZE</code></td>
     <td><code>[200, 200, 200]</code></td>
   </tr>
 
   <tr>
     <td>hot_travel_split</td>
-    <td>list of floats</td>
-    <td>Fraction of hotel visitors that commute to [entertainment locations, airports] on an average day.</td>
+    <td>(optional)<br>list of floats</td>
+    <td>Fraction of hotel visitors that commute to [entertainment locations, airports] on an average day.<br><b>Default:</b> <code>[0.5, 0.5]</code></td>
     <td><code>[0.5, 0.5]</code></td>
   </tr>
 
@@ -445,8 +457,8 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>base_merge_within</td>
-    <td>list of ints</td>
-    <td>Merge distance (meters) for base demand points.</td>
+    <td>(optional)<br>list of ints</td>
+    <td>Merge distance (meters) for base demand points.<br><b>Default:</b> 0 for all points.</td>
     <td><code>[0, 0, 0]</code></td>
   </tr>
 
@@ -459,8 +471,8 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>base_pop_size</td>
-    <td>list of ints</td>
-    <td>Pop size created for each base location.</td>
+    <td>(optional)<br>list of ints</td>
+    <td>Pop size created for each base location.<br><b>Default:</b> <code>MAXPOPSIZE</code></td>
     <td><code>[200, 200, 200]</code></td>
   </tr>
 
@@ -473,8 +485,8 @@ See the examples/ directory for example JSON input files used for some of the ma
 
   <tr>
     <td>base_perc_travel</td>
-    <td>list of floats</td>
-    <td>Fraction of personnel that live [on base, off base] that travel on an average day.</td>
+    <td>(optional)<br>list of floats</td>
+    <td>Fraction of personnel that live [on base, off base] that travel on an average day.<br><b>Default:</b> <code>[0.4, 0.7]</code></td>
     <td><code>[0.4, 0.7]</code></td>
   </tr>
 
