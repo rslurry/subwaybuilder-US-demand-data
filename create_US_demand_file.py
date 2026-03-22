@@ -1699,8 +1699,9 @@ def main():
     ###############################################################################
 
     # Save out demand file
-    os.makedirs(os.path.join(os.path.dirname(__file__), 'demand_data', city.replace(' ', '')), exist_ok=True)
-    filename = os.path.join('demand_data', city.replace(' ', ''), 'demand_data.json')
+    filename = os.path.join(os.path.dirname(__file__), 'demand_data', city.replace(' ', ''), 'demand_data.json')
+    os.makedirs(os.path.dirname(filename), exist_ok=True)
+    
     with open(filename, "w") as json_file:
         if HUMAN_READABLE:
             json.dump(demand, json_file, indent=4)
