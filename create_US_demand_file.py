@@ -1172,7 +1172,7 @@ def main():
             if ent_hotel_pop_count[i] < ent_size[i]:
                 ent_res_avail.append(i)
         for i in range(0,len(airport_loc)):
-            airport_res_avail.append(i)
+            airport_avail.append(i)
             airport_cap_use.append(0 + (airport_pop_size[i] * len(airport_req_locs[i])))
             if airport_daily_passengers[i] < airport_daily_passengers[i]:
                 airport_avail.append(i)
