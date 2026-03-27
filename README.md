@@ -384,7 +384,7 @@ If this fails on your OS/architecture, @slurry in the Discord and provide as muc
 
 </table>
 
-## Hotel‑related Parameters
+## Hotel‑related Parameters (NOTE: currently does not work, awaiting fix from muffintime)
 <table>
   <tr>
     <th style="width:150px;">Parameter</th>
