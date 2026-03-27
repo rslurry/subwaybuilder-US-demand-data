@@ -577,6 +577,10 @@ def main():
     except Exception as e:
         print("Hotel data either not provided or missing required parameters:\n", e, "\nDisabling hotels.")
         hotels = False
+    # Temp fix until muffintime fixes their code
+    if hotels:
+        print("hotels were correctly specified, but they are currently disabled pending a fix from muffintime.")
+        hotels = False
 
     # Military data
     try:
