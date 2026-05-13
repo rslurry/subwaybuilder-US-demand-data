@@ -1168,7 +1168,7 @@ def main():
     print("  Current residents:", np.sum([p['residents'] for p in demand["points"]]))
     
     ###############################################################################
-    CONSOLIDATE_POPS = True
+    CONSOLIDATE_POPS = False
     consolidate_max_size = 100
     consolidate_distance = 100
     
