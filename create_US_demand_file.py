@@ -370,8 +370,9 @@ def main():
                                         str(np.round(np.mean(bbox["coordinates"], axis=0)[0], 5))+","+\
                                         str(np.round(np.mean(bbox["coordinates"], axis=0)[1], 5)))
             assert response.status_code == 200, "osrm routing requested, but unable to get a " + \
-                       "request from the local osrm server.  " + \
-                       "Are you sure it's running on port 5000 and covers the specified `bbox`?"
+                       "request from the local osrm server.  Received status code " + \
+                       str(response.status_code) + \
+                       ".\nAre you sure it's running on port 5000 and covers the specified `bbox`?"
             session = requests.Session()
             session.headers.update({"Connection": "close"})
         print("Using", ROUTING_METHOD, "to calculate routes", flush=True)
@@ -640,11 +641,16 @@ def main():
     all_home = []
     all_pops = []
 
+    if len(states) > 1:
+        get_aux_files = True
+    else:
+        get_aux_files = False
     for state in states:
         print("  Processing", state, "data for", year, flush=True)
 
         fxwalk = os.path.join(FOODIR, 'data', state, state+'_xwalk.csv')
         fjobs  = os.path.join(FOODIR, 'data', state, state+'_od_main_JT01_'+str(year)+'.csv')
+        faux   = os.path.join(FOODIR, 'data', state, state+'_od_aux_JT01_' +str(year)+'.csv')
 
         if not os.path.exists(fxwalk):
             print("    Downloading", year, "crosswalk data for", state)
@@ -663,6 +669,16 @@ def main():
             content = gzip.decompress(response.content)
             with open(fjobs, "wb") as f:
                 f.write(content)
+        
+        if get_aux_files:
+            if not os.path.exists(faux):
+                print("    Downloading", year, "jobs data for", state)
+                os.makedirs(os.path.dirname(faux), exist_ok=True)
+                response = requests.get(f"https://lehd.ces.census.gov/data/lodes/LODES8/{state}/od/{state}_od_aux_JT01_{year}.csv.gz")
+                response.raise_for_status()
+                content = gzip.decompress(response.content)
+                with open(faux, "wb") as f:
+                    f.write(content)
 
         # Read crosswalk file - xwalk - from LODES https://lehd.ces.census.gov/data/
         print("    Loading crosswalk data")
@@ -707,7 +723,7 @@ def main():
         work = jobs[:,0]
         home = jobs[:,1]
         pops = jobs[:,2]
-
+        
         ikeep = np.array([w in xwalk_ids for w in work]) * \
                 np.array([h in xwalk_ids for h in home])
         work = work[ikeep]
@@ -720,6 +736,22 @@ def main():
         all_work.append(work)
         all_home.append(home)
         all_pops.append(pops)
+        if get_aux_files:
+            print("    Loading jobs that cross state boundaries")
+            with open(faux, 'r') as foo:
+                jobs_header = np.array(foo.readlines()[0].strip().split(','))
+            aux_jobs = np.loadtxt(faux, delimiter=',', skiprows=1, dtype=int)
+            aux_work = aux_jobs[:,0]
+            aux_home = aux_jobs[:,1]
+            aux_pops = aux_jobs[:,2]
+            ikeep = np.array([w in xwalk_ids for w in aux_work]) * \
+                    np.array([h in xwalk_ids for h in aux_home])
+            aux_work = aux_work[ikeep]
+            aux_home = aux_home[ikeep]
+            aux_pops = aux_pops[ikeep]
+            all_work.append(aux_work)
+            all_home.append(aux_home)
+            all_pops.append(aux_pops)
 
     xwalk_ids = np.concatenate(all_xwalk_ids)
     xwalk_lat = np.concatenate(all_xwalk_lat)
@@ -1016,6 +1048,7 @@ def main():
 
     ###############################################################################
 
+    """
     print("Ensuring all points are located on land")
     # Kronifer suggestion: use the water.geojson file in the raw_data
     fcoast = os.path.join("data", "coasts", "ne_10m_coastline.zip")
@@ -1048,32 +1081,35 @@ def main():
         pop_dict[p['id']] = ip
 
     ip=0
-    while ip < len(demand["points"]):
-        print("  Checking point", ip+1, '/', len(demand['points']), end='\r')
-        p = demand["points"][ip]
-        if not is_land(p["location"]):
-            # Over water - merge this into the nearest point
-            # Find nearest point
-            closest_point = min(
-                                (point for point in demand['points'] if point["location"] != p["location"]),
-                                key=lambda p: U.haversine(p    ["location"][0], p    ["location"][1], 
-                                                          point["location"][0], point["location"][1])
-                            )
-            # Merge into it
-            closest_point['jobs'] += p['jobs']
-            closest_point['residents'] += p['residents']
-            closest_point['popIds'] += p['popIds']
-            closest_point['popIds'] = np.unique(closest_point['popIds']).tolist()
-            # Update pops
-            for popid in p['popIds']:
-                if demand['pops'][pop_dict[popid]]['residenceId'] == p['id']:
-                    demand['pops'][pop_dict[popid]]['residenceId'] = closest_point['id']
-                if demand['pops'][pop_dict[popid]]['jobId'] == p['id']:
-                    demand['pops'][pop_dict[popid]]['jobId'] = closest_point['id']
-            del demand["points"][ip]
-        else:
-            ip += 1
-
+    land_mask = [is_land(point["location"]) for point in demand['points']]
+    if np.any(land_mask):
+        while ip < len(demand["points"]):
+            print("  Checking point", ip+1, '/', len(demand['points']), end='\r')
+            p = demand["points"][ip]
+            if not is_land(p["location"]):
+                # Over water - merge this into the nearest point
+                # Find nearest point
+                closest_point = min(
+                                    (point for ipt, point in enumerate(demand['points']) if land_mask[ipt]),
+                                    key=lambda q: U.haversine(q["location"][0], q["location"][1], 
+                                                              p["location"][0], p["location"][1])
+                                )
+                # Merge into it
+                closest_point['jobs'] += p['jobs']
+                closest_point['residents'] += p['residents']
+                closest_point['popIds'] += p['popIds']
+                closest_point['popIds'] = np.unique(closest_point['popIds']).tolist()
+                # Update pops
+                for popid in p['popIds']:
+                    if demand['pops'][pop_dict[popid]]['residenceId'] == p['id']:
+                        demand['pops'][pop_dict[popid]]['residenceId'] = closest_point['id']
+                    if demand['pops'][pop_dict[popid]]['jobId'] == p['id']:
+                        demand['pops'][pop_dict[popid]]['jobId'] = closest_point['id']
+                del demand["points"][ip]
+                del land_mask[ip]
+            else:
+                ip += 1
+    """
     # Some points may still be over water - use the water.geojson file
     #fwater = '../subwaybuilder-patcher-gui-new/patcher/packages/mapPatcher/raw_data/ROC/water.geojson'
     #water_gdf = gpd.read_file(fwater)
@@ -1130,6 +1166,149 @@ def main():
     print("  Current total pop size:", np.sum([p['size'] for p in demand['pops']]))
     print("  Current workers:", np.sum([p['jobs'] for p in demand["points"]]))
     print("  Current residents:", np.sum([p['residents'] for p in demand["points"]]))
+    
+    ###############################################################################
+    CONSOLIDATE_POPS = False
+    consolidate_max_size = 100
+    consolidate_distance = 100
+    
+    if CONSOLIDATE_POPS:
+        print("Consolidating pops of sizes <", consolidate_max_size, 
+              "among points within", consolidate_distance, "meters")
+        if not isinstance(consolidate_max_size, list):
+            consolidate_max_size = [consolidate_max_size]
+        if not isinstance(consolidate_distance, list):
+            consolidate_distance = [consolidate_distance]
+        assert len(consolidate_max_size) == len(consolidate_distance), "Must provide the same number of values for both consolidate_max_size and consolidate_distance. Received:\nconsolidate_max_size = " + str(consolidate_max_size) + "\nconsolidate_distance = " + str(consolidate_distance)
+            
+        point_map = {p['id']: p for p in demand['points']}
+        point_ids = [p['id'] for p in demand['points']]
+        id_to_idx = {pid: i for i, pid in enumerate(point_ids)}
+        
+        # Calculate distance matrix between points
+        coords = np.array([p['location'] for p in demand['points']])
+        lons, lats = coords[:, 0], coords[:, 1]
+        dist_matrix = U.haversine(lons[:, None], lats[:, None], lons[None, :], lats[None, :])
+        
+        delta_res = {pid: 0 for pid in point_ids}
+        delta_job = {pid: 0 for pid in point_ids}
+        removed_pop_ids = set()
+        
+        # Helper for target selection
+        def get_target_id(id1, id2, size, delta_dict):
+            d1, d2 = delta_dict[id1], delta_dict[id2]
+            if d1 < 0 and d2 >= 0: return id1
+            if d2 < 0 and d1 >= 0: return id2
+            if abs(d1 - d2) > size:
+                return id1 if d1 < d2 else id2
+            s1 = point_map[id1]['jobs'] + point_map[id1]['residents']
+            s2 = point_map[id2]['jobs'] + point_map[id2]['residents']
+            return id1 if s1 < s2 else id2
+        
+        for ic in range(len(consolidate_max_size)):
+            # Pass 1: Group pops by job to consolidate residences
+            print("  Consolidating residences")
+            job_groups = defaultdict(list)
+            for pop in demand['pops']:
+                job_groups[pop['jobId']].append(pop)
+            
+            pop_map = {p['id']: p for p in demand['pops']}
+            
+            for job_id, group in job_groups.items():
+                if job_id[:4] in ["UNI_", "ENT_", "AIR_", "MIL_"]:
+                    continue
+                if len(group) < 2: continue
+                # Sort by size so we try to merge smaller ones first
+                group.sort(key=lambda x: pop_map[x['id']]['size'])
+                
+                for i in range(len(group)):
+                    p_i = pop_map[group[i]['id']]
+                    if p_i['id'] in removed_pop_ids or pop_map[p_i['id']]['size'] >= consolidate_max_size[ic]: continue
+                    
+                    for j in range(i + 1, len(group)):
+                        p_j = pop_map[group[j]['id']]
+                        if p_j['id'] in removed_pop_ids or pop_map[p_j['id']]['size'] >= consolidate_max_size[ic]: continue
+                        
+                        # Spatial check
+                        if dist_matrix[id_to_idx[p_i['residenceId']], id_to_idx[p_j['residenceId']]] <= consolidate_distance[ic]:
+                            target = get_target_id(p_i['residenceId'], p_j['residenceId'], pop_map[p_j['id']]['size'], delta_res)
+                            survivor, victim = (p_i, p_j) if p_i['residenceId'] == target else (p_j, p_i)
+                            
+                            # Update metadata
+                            v_size = pop_map[victim['id']]['size']
+                            source_id = victim['residenceId']
+                            point_map[source_id]['residents'] -= v_size
+                            point_map[target]['residents'] += v_size
+                            delta_res[source_id] -= v_size
+                            delta_res[target] += v_size
+                            
+                            if victim['id'] in point_map[source_id]['popIds']:
+                                point_map[source_id]['popIds'].remove(victim['id'])
+                            if survivor['id'] not in point_map[target]['popIds']:
+                                point_map[target]['popIds'].append(survivor['id'])
+                            
+                            # Merge logic
+                            pop_map[survivor['id']]['size'] += v_size
+                            pop_map[survivor['id']]['residenceId'] = target
+                            removed_pop_ids.add(victim['id'])
+                            if victim['id'] == p_i['id']:
+                                break
+                            
+                            if pop_map[survivor['id']]['size'] >= consolidate_max_size[ic]: break
+            
+            # Pass 2: Group pops by residence to consolidate jobs
+            print("  Consolidating jobs")
+            # Refresh pop list to exclude removed ones
+            remaining_pops = [p for p in demand['pops'] if p['id'] not in removed_pop_ids]
+            res_groups = defaultdict(list)
+            for pop in remaining_pops:
+                res_groups[pop['residenceId']].append(pop)
+            
+            for res_id, group in res_groups.items():
+                if res_id[:4] in ["UNI_", "MIL_"]:
+                    continue
+                if len(group) < 2: continue
+                group.sort(key=lambda x: pop_map[x['id']]['size'])
+                
+                for i in range(len(group)):
+                    p_i = pop_map[group[i]['id']]
+                    if p_i['id'] in removed_pop_ids or pop_map[p_i['id']]['size'] >= consolidate_max_size[ic]: continue
+                    
+                    for j in range(i + 1, len(group)):
+                        p_j = pop_map[group[j]['id']]
+                        if p_j['id'] in removed_pop_ids or pop_map[p_j['id']]['size'] >= consolidate_max_size[ic]: continue
+                        
+                        if dist_matrix[id_to_idx[p_i['jobId']], id_to_idx[p_j['jobId']]] <= consolidate_distance[ic]:
+                            target = get_target_id(p_i['jobId'], p_j['jobId'], pop_map[p_j['id']]['size'], delta_job)
+                            survivor, victim = (p_i, p_j) if p_i['jobId'] == target else (p_j, p_i)
+                            
+                            v_size = pop_map[victim['id']]['size']
+                            source_id = victim['jobId']
+                            point_map[source_id]['jobs'] -= v_size
+                            point_map[target]['jobs'] += v_size
+                            delta_job[source_id] -= v_size
+                            delta_job[target] += v_size
+                            
+                            if victim['id'] in point_map[source_id]['popIds']:
+                                point_map[source_id]['popIds'].remove(victim['id'])
+                            if survivor['id'] not in point_map[target]['popIds']:
+                                point_map[target]['popIds'].append(survivor['id'])
+                            
+                            pop_map[survivor['id']]['size'] += v_size
+                            pop_map[survivor['id']]['jobId'] = target
+                            removed_pop_ids.add(victim['id'])
+                            if victim['id'] == p_i['id']:
+                                break
+                            
+                            if pop_map[survivor['id']]['size'] >= consolidate_max_size[ic]: break
+        
+        demand['pops'] = [p for p in demand['pops'] if p['id'] not in removed_pop_ids]
+        
+        print("  Current points:", len(demand['points']))
+        print("  Current pops:", len(demand['pops']))
+        print("  Current total pop size:", np.sum([p['size'] for p in demand['pops']]))
+        print("  Current workers:", np.sum([p['jobs'] for p in demand["points"]]))
+        print("  Current residents:", np.sum([p['residents'] for p in demand["points"]]))
 
     ###############################################################################
 
