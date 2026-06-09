@@ -197,6 +197,27 @@ If this fails on your OS/architecture, @slurry in the Discord and provide as muc
   </tr>
 
   <tr>
+    <td>CONSOLIDATE_POPS</td>
+    <td>(optional)<br>bool</td>
+    <td>Determines whether to enable pop consolidation.<br><b>Default:</b> <code>false</code></td>
+    <td><code>true</code></td>
+  </tr>
+
+  <tr>
+    <td>consolidate_max_size</td>
+    <td>(optional)<br>list of int</td>
+    <td>Threshold population sizes where all pops below the size are eligible for consolidation within the corresponding `consolidate_distance`.<br><b>Default:</b> <code>[25, 10, 5, 2]</code></td>
+    <td><code>[25, 10, 5, 2]</code></td>
+  </tr>
+
+  <tr>
+    <td>consolidate_distance</td>
+    <td>(optional)<br>list of int or float</td>
+    <td>Distances in meters for consolidation of pops less than the corresponding `consolidate_max_size`.<br><b>Default:</b> <code>[2000, 4000, 80000, 16000]</code></td>
+    <td><code>[2000, 4000, 80000, 16000]</code></td>
+  </tr>
+
+  <tr>
     <td>point_locs_to_move</td>
     <td>list of list of floats</td>
     <td>Coordinates of demand points to move.</td>
