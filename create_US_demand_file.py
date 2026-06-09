@@ -67,6 +67,18 @@ The input JSON file must have the following fields defined:
     DEMAND_FACTOR: float, multiply all LODES pop sizes by this factor.
                           Example: 2
     
+    CONSOLIDATE_POPS : (optional) bool, Determines whether to enable pop consolidation
+                       Default: false
+    consolidate_max_size : list of int, Threshold population sizes where all 
+                           pops below the size are eligible for consolidation 
+                           within the corresponding `consolidate_distance`.
+                           Default: [25, 10, 5, 2]
+    consolidate_distance : list of int or float, Distances in meters for 
+                           consolidation of pops less than the corresponding 
+                           `consolidate_max_size`.
+                           Default: [2000, 4000, 80000, 16000]
+    
+    
     point_locs_to_move : list of list of floats, coordinates in [lon, lat] of demand points that you want to move 
                                                  for whatever reason.  
                                                  Must correspond exactly to the order used in `moved_point_locs`.
@@ -202,20 +214,53 @@ def process_block(block, home, work, pops):
 
 def merge_points(inps, loc_assignments, sorted_points, size_of_points, pops_by_id):
     ipoint, unique_loc = inps
-    iloc = [ip==ipoint for ip in loc_assignments]
-    these_points = [sorted_points[p] for p in range(len(sorted_points)) if iloc[p]]
+
+    # Convert to NumPy array once
+    loc_assignments = np.asarray(loc_assignments)
+    mask = loc_assignments == ipoint
+
+    # Extract points using boolean mask
+    these_points = [sorted_points[i] for i in np.where(mask)[0]]
+
+    # Pre-extract fields
     pids = [p['id'] for p in these_points]
-    merged_id = these_points[size_of_points[iloc].argmax()]['id']
-    if 'merged_' not in merged_id:
-        # To make clear that this point had others merged into it
+    sizes = size_of_points[mask]
+
+    # Pick representative ID
+    max_idx = np.argmax(sizes)
+    merged_id = these_points[max_idx]['id']
+    if not merged_id.startswith('merged_'):
         merged_id = 'merged_' + merged_id
-    merged_loc = U.compute_centroid([p['location'] for p in these_points], size_of_points[iloc])
-    merged_jobs = int(np.sum([p['jobs'] for p in these_points]))
-    merged_residents = int(np.sum([p['residents'] for p in these_points]))
-    merged_popIds = []
-    for p in these_points:
-        merged_popIds += p['popIds']
-    merged_popIds = np.unique(merged_popIds).tolist()
+
+    # Vectorized centroid
+    merged_loc = U.compute_centroid(
+        [p['location'] for p in these_points],
+        sizes
+    )
+
+    # Vectorized sums
+    merged_jobs = sum(p['jobs'] for p in these_points)
+    merged_residents = sum(p['residents'] for p in these_points)
+
+    # Flatten popIds efficiently
+    merged_popIds = np.unique(
+        np.concatenate([p['popIds'] for p in these_points])
+    ).tolist()
+
+    # Update pops (only deep-copy those that need updating)
+    updated_pops = []
+    pid_set = set(pids)
+    for popid in merged_popIds:
+        p = pops_by_id[popid]
+        needs_copy = p['residenceId'] in pid_set or p['jobId'] in pid_set
+        if needs_copy:
+            p = copy.deepcopy(p)
+            if p['residenceId'] in pid_set:
+                p['residenceId'] = merged_id
+            if p['jobId'] in pid_set:
+                p['jobId'] = merged_id
+        updated_pops.append(p)
+
     merged_point = {
         "id": merged_id,
         "location": merged_loc,
@@ -223,16 +268,9 @@ def merge_points(inps, loc_assignments, sorted_points, size_of_points, pops_by_i
         "residents": merged_residents,
         "popIds": merged_popIds
     }
-    # Update pops
-    updated_pops = []
-    for popid in merged_popIds:
-        p = copy.deepcopy(pops_by_id[popid])
-        if p['residenceId'] in pids:
-            p['residenceId'] = merged_id
-        if p['jobId'] in pids:
-            p['jobId'] = merged_id
-        updated_pops.append(p)
+
     return merged_point, updated_pops
+
 
 
 def process_home_node(i, demand, G, points_by_id):
@@ -334,6 +372,28 @@ def main():
     assert len(maxPopThreshold) == len(bufferMeters), str(len(maxPopThreshold)) + \
            " values provided for MAX_POP_THRESHOLD, but " + \
            str(len(bufferMeters))+" values provided for BUFFER_METERS"
+    
+    try:
+        CONSOLIDATE_POPS = bool(cfg['CONSOLIDATE_POPS'])
+        if CONSOLIDATE_POPS:
+            try:
+                consolidate_max_size = cfg['consolidate_max_size']
+            except:
+                consolidate_max_size = [25, 10, 5, 2]
+            try:
+                consolidate_distance = cfg['consolidate_distance']
+            except:
+                consolidate_distance = [2000, 4000, 80000, 16000] # meters
+            assert len(consolidate_max_size) == len(consolidate_distance), \
+                "Must provide the same number of values for " \
+                "consolidate_max_size and consolidate_distance, but " \
+                "received " + str(len(consolidate_max_size)) + \
+                " and " + str(len(consolidate_distance)) + "respectively."
+    except Exception as e:
+        print("Consolidation parameters either not provided or are inconsistent:\n", e, "\nDisabling pop consolidation.")
+        CONSOLIDATE_POPS = False
+        
+    
     print("Demand parameters:")
     print("  SMALL_THRESHOLD:", SMALL_THRESHOLD)
     print("  DISTANCE_THRESHOLD_NONCBD:", DISTANCE_THRESHOLD_NONCBD)
@@ -341,6 +401,10 @@ def main():
     print("  MAX_POP_THRESHOLD:", maxPopThreshold)
     print("  BUFFER_METERS:", bufferMeters)
     print("  DEMAND_FACTOR:", DEMAND_FACTOR)
+    print("  CONSOLIDATE_POPS:", CONSOLIDATE_POPS)
+    if CONSOLIDATE_POPS:
+        print("  consolidate_max_size:", consolidate_max_size)
+        print("  consolidate_distance:", consolidate_distance, "m")
     
     # Map info
     bbox = cfg['bbox']
@@ -1168,9 +1232,6 @@ def main():
     print("  Current residents:", np.sum([p['residents'] for p in demand["points"]]))
     
     ###############################################################################
-    CONSOLIDATE_POPS = False
-    consolidate_max_size = 100
-    consolidate_distance = 100
     
     if CONSOLIDATE_POPS:
         print("Consolidating pops of sizes <", consolidate_max_size, 
@@ -1303,6 +1364,14 @@ def main():
                             if pop_map[survivor['id']]['size'] >= consolidate_max_size[ic]: break
         
         demand['pops'] = [p for p in demand['pops'] if p['id'] not in removed_pop_ids]
+        
+        # Re-build popIds list for points
+        for p in demand['points']:
+            p['popIds'] = []
+        points_by_id = {p["id"]: p for p in demand["points"]}
+        for p in demand['pops']:
+            points_by_id[p['residenceId']]['popIds'].append(p['id'])
+            points_by_id[p['jobId']]['popIds'].append(p['id'])
         
         print("  Current points:", len(demand['points']))
         print("  Current pops:", len(demand['pops']))
