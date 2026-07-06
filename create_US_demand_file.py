@@ -1224,6 +1224,9 @@ def main():
             pop = demand['pops'][imerge[0]]
         new_pops.append(pop)
     demand['pops'] = new_pops
+    
+    # Update points
+    demand['points'] = [p for p in demand['points'] if len(p['popIds']) > 0]
 
     print("  Current points:", len(demand['points']))
     print("  Current pops:", len(demand['pops']))
@@ -1372,6 +1375,9 @@ def main():
         for p in demand['pops']:
             points_by_id[p['residenceId']]['popIds'].append(p['id'])
             points_by_id[p['jobId']]['popIds'].append(p['id'])
+        
+        # Update points
+        demand['points'] = [p for p in demand['points'] if len(p['popIds']) > 0]
         
         print("  Current points:", len(demand['points']))
         print("  Current pops:", len(demand['pops']))
